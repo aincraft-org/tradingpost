@@ -22,9 +22,9 @@
 ### Task 1: Rename command registrations and dispatch
 
 **Files:**
-- Modify: `src/main/java/dev/jlo/tradingpost/command/TradingPostCommands.java:34-43`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/command/TradingPostCommands.java:34-43`
 - Modify: `src/main/resources/paper-plugin.yml:19-27`
-- Test: `src/test/java/dev/jlo/tradingpost/command/TradingPostCommandsTest.java` if the project test fixtures support command mocks; otherwise add a focused pure dispatch test beside the existing command tests.
+- Test: `src/test/java/dev/mintychochip/tradingpost/command/TradingPostCommandsTest.java` if the project test fixtures support command mocks; otherwise add a focused pure dispatch test beside the existing command tests.
 
 **Interfaces:**
 - `register()` binds `post` and `postadmin`.
@@ -41,7 +41,7 @@
 ### Task 2: Update usage text and references
 
 **Files:**
-- Modify: `src/main/java/dev/jlo/tradingpost/command/TradingPostCommands.java:119-128`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/command/TradingPostCommands.java:119-128`
 - Modify: `src/main/resources/paper-plugin.yml:21-26`
 - Modify: command-facing sections in `docs/superpowers/specs/2026-08-08-tradingpost-villager-design.md` and `docs/superpowers/plans/2026-08-08-tradingpost-villager.md` if they mention the old names.
 

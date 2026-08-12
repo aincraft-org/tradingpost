@@ -32,29 +32,29 @@ Create the following focused units:
 - `src/main/resources/paper-plugin.yml` — plugin identity and required `Mint` dependency.
 - `src/main/resources/config.yml` — database, Mint IDs, rates, durations, limits, intervals.
 - `src/main/resources/db/migration/V1__tradingpost.sql` — schema, constraints, indexes.
-- `src/main/java/dev/jlo/tradingpost/TradingPostPlugin.java` — Paper lifecycle coordinator.
-- `src/main/java/dev/jlo/tradingpost/lifecycle/PluginState.java` — `STARTING`, `READY`, `DEGRADED`, `SHUTTING_DOWN`, `STOPPED`.
-- `src/main/java/dev/jlo/tradingpost/lifecycle/AsyncExecutor.java` — bounded executor/admission and safe shutdown.
-- `src/main/java/dev/jlo/tradingpost/config/TradingPostConfig.java` — immutable validated configuration.
-- `src/main/java/dev/jlo/tradingpost/mint/MintGateway.java` — Mint service lookup, account/currency validation, transfer requests, receipt lookup.
-- `src/main/java/dev/jlo/tradingpost/mint/MintTransfer.java` — immutable transfer legs and metadata.
-- `src/main/java/dev/jlo/tradingpost/money/MoneyMath.java` — scale, basis-point, fee/tax, and surplus calculations.
-- `src/main/java/dev/jlo/tradingpost/domain/OrderSide.java`, `OrderStatus.java`, `SellOrderMode.java`, `SettlementKind.java`, `SettlementState.java` — persisted enum contracts.
-- `src/main/java/dev/jlo/tradingpost/domain/SellOrder.java`, `BuyOrder.java`, `Fill.java`, `Settlement.java`, `MailboxItem.java`, `Market.java`, `TradingPostBlock.java` — immutable records.
-- `src/main/java/dev/jlo/tradingpost/items/ItemCodec.java` — Paper ItemStack bytes and SHA-256 fingerprints.
-- `src/main/java/dev/jlo/tradingpost/db/Database.java`, `MigrationRunner.java`, `TransactionCallback.java` — JDBC pool, migrations, local AH transactions.
-- `src/main/java/dev/jlo/tradingpost/db/OrderRepository.java`, `SettlementRepository.java`, `MailboxRepository.java`, `MarketRepository.java`, `ReviewRepository.java` — SQL authority.
-- `src/main/java/dev/jlo/tradingpost/market/MatchingEngine.java` — pure price-time matching decisions.
-- `src/main/java/dev/jlo/tradingpost/market/OrderService.java` — placement, cancellation, Sell Now transient orders, and matching reservation.
-- `src/main/java/dev/jlo/tradingpost/settlement/SettlementService.java` — reserve, submit, advance, compensate, and deliver.
-- `src/main/java/dev/jlo/tradingpost/settlement/SettlementRecoveryWorker.java` — leases and receipt-driven recovery.
-- `src/main/java/dev/jlo/tradingpost/settlement/ExpiryWorker.java`, `ReconciliationWorker.java` — scheduled maintenance.
-- `src/main/java/dev/jlo/tradingpost/mailbox/MailboxService.java` — item return and claim state transitions.
-- `src/main/java/dev/jlo/tradingpost/post/TradingPostRegistry.java`, `TradingPostListener.java` — block registration and interaction gating.
-- `src/main/java/dev/jlo/tradingpost/command/TradingPostCommands.java` — `/ah` and `/ahadmin`.
-- `src/main/java/dev/jlo/tradingpost/ui/TradingPostHolder.java`, `TradingPostMenu.java`, `OrderDetailMenu.java`, `SellMenu.java`, `BuyOrderMenu.java`, `MyOrdersMenu.java`, `MailboxMenu.java` — inventory UI.
-- `src/test/java/dev/jlo/tradingpost/money/MoneyMathTest.java`, `market/MatchingEngineTest.java`, `settlement/SettlementStateMachineTest.java`, `items/ItemCodecTest.java` — deterministic unit tests.
-- `src/test/java/dev/jlo/tradingpost/db/PostgresRepositoryTest.java`, `settlement/RecoveryIntegrationTest.java` — Testcontainers integration tests.
+- `src/main/java/dev/mintychochip/tradingpost/TradingPostPlugin.java` — Paper lifecycle coordinator.
+- `src/main/java/dev/mintychochip/tradingpost/lifecycle/PluginState.java` — `STARTING`, `READY`, `DEGRADED`, `SHUTTING_DOWN`, `STOPPED`.
+- `src/main/java/dev/mintychochip/tradingpost/lifecycle/AsyncExecutor.java` — bounded executor/admission and safe shutdown.
+- `src/main/java/dev/mintychochip/tradingpost/config/TradingPostConfig.java` — immutable validated configuration.
+- `src/main/java/dev/mintychochip/tradingpost/mint/MintGateway.java` — Mint service lookup, account/currency validation, transfer requests, receipt lookup.
+- `src/main/java/dev/mintychochip/tradingpost/mint/MintTransfer.java` — immutable transfer legs and metadata.
+- `src/main/java/dev/mintychochip/tradingpost/money/MoneyMath.java` — scale, basis-point, fee/tax, and surplus calculations.
+- `src/main/java/dev/mintychochip/tradingpost/domain/OrderSide.java`, `OrderStatus.java`, `SellOrderMode.java`, `SettlementKind.java`, `SettlementState.java` — persisted enum contracts.
+- `src/main/java/dev/mintychochip/tradingpost/domain/SellOrder.java`, `BuyOrder.java`, `Fill.java`, `Settlement.java`, `MailboxItem.java`, `Market.java`, `TradingPostBlock.java` — immutable records.
+- `src/main/java/dev/mintychochip/tradingpost/items/ItemCodec.java` — Paper ItemStack bytes and SHA-256 fingerprints.
+- `src/main/java/dev/mintychochip/tradingpost/db/Database.java`, `MigrationRunner.java`, `TransactionCallback.java` — JDBC pool, migrations, local AH transactions.
+- `src/main/java/dev/mintychochip/tradingpost/db/OrderRepository.java`, `SettlementRepository.java`, `MailboxRepository.java`, `MarketRepository.java`, `ReviewRepository.java` — SQL authority.
+- `src/main/java/dev/mintychochip/tradingpost/market/MatchingEngine.java` — pure price-time matching decisions.
+- `src/main/java/dev/mintychochip/tradingpost/market/OrderService.java` — placement, cancellation, Sell Now transient orders, and matching reservation.
+- `src/main/java/dev/mintychochip/tradingpost/settlement/SettlementService.java` — reserve, submit, advance, compensate, and deliver.
+- `src/main/java/dev/mintychochip/tradingpost/settlement/SettlementRecoveryWorker.java` — leases and receipt-driven recovery.
+- `src/main/java/dev/mintychochip/tradingpost/settlement/ExpiryWorker.java`, `ReconciliationWorker.java` — scheduled maintenance.
+- `src/main/java/dev/mintychochip/tradingpost/mailbox/MailboxService.java` — item return and claim state transitions.
+- `src/main/java/dev/mintychochip/tradingpost/post/TradingPostRegistry.java`, `TradingPostListener.java` — block registration and interaction gating.
+- `src/main/java/dev/mintychochip/tradingpost/command/TradingPostCommands.java` — `/ah` and `/ahadmin`.
+- `src/main/java/dev/mintychochip/tradingpost/ui/TradingPostHolder.java`, `TradingPostMenu.java`, `OrderDetailMenu.java`, `SellMenu.java`, `BuyOrderMenu.java`, `MyOrdersMenu.java`, `MailboxMenu.java` — inventory UI.
+- `src/test/java/dev/mintychochip/tradingpost/money/MoneyMathTest.java`, `market/MatchingEngineTest.java`, `settlement/SettlementStateMachineTest.java`, `items/ItemCodecTest.java` — deterministic unit tests.
+- `src/test/java/dev/mintychochip/tradingpost/db/PostgresRepositoryTest.java`, `settlement/RecoveryIntegrationTest.java` — Testcontainers integration tests.
 
 ---
 
@@ -63,12 +63,12 @@ Create the following focused units:
 **Files:**
 - Create: `settings.gradle.kts`, `build.gradle.kts`.
 - Create: `src/main/resources/paper-plugin.yml`, `src/main/resources/config.yml`.
-- Create: `src/main/java/dev/jlo/tradingpost/TradingPostPlugin.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/lifecycle/PluginState.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/lifecycle/AsyncExecutor.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/config/TradingPostConfig.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/mint/MintGateway.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/mint/MintTransfer.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/TradingPostPlugin.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/lifecycle/PluginState.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/lifecycle/AsyncExecutor.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/config/TradingPostConfig.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/mint/MintGateway.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/mint/MintTransfer.java`.
 
 **Interfaces:**
 - `MintGateway.ready(): boolean` returns true only when the registered `PaperMintAccess` provider returns `MintState.READY`.
@@ -81,7 +81,7 @@ Create the following focused units:
 
 - [ ] Add the composite build and dependencies. Use `includeBuild("../mint")`, `implementation("dev.jlo.mint:mint-api:0.1.0-SNAPSHOT")`, `compileOnly("dev.jlo.mint:mint-paper:1.0.0")`, `compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")`, PostgreSQL JDBC, HikariCP, JUnit 5, and Testcontainers. Do not use `project(":mint-api")`: the AH build has no such project path.
 - [ ] Run `./gradlew dependencies --configuration compileClasspath` and verify the composite build resolves `dev.jlo.mint:mint-api:0.1.0-SNAPSHOT` and `dev.jlo.mint:mint-paper:1.0.0` from `../mint` before writing integration imports.
-- [ ] Add `paper-plugin.yml` with `name: TradingPost`, `main: dev.jlo.tradingpost.TradingPostPlugin`, `api-version: '1.21'`, `load: POSTWORLD`, and required server dependency `Mint` with `load: BEFORE` and `join-classpath: true`.
+- [ ] Add `paper-plugin.yml` with `name: TradingPost`, `main: dev.mintychochip.tradingpost.TradingPostPlugin`, `api-version: '1.21'`, `load: POSTWORLD`, and required server dependency `Mint` with `load: BEFORE` and `join-classpath: true`.
 - [ ] Implement config parsing for JDBC URL/user/password/schema, Mint client/currency/account IDs, rates, limits, intervals, and durations. Reject negative rates, zero durations, invalid IDs, and a currency scale outside `0..18`.
 - [ ] Implement a bounded executor with a semaphore admission limit and virtual-thread tasks. `submit(Callable<T>)` returns `CompletionStage<T>` and releases admission in `whenComplete`.
 - [ ] Implement `TradingPostPlugin.onEnable` as: load config; initialize executor/database; obtain `PaperMintAccess`; poll readiness with bounded backoff; validate currency and ensure TradingPost-owned accounts; only then set `READY` and register listeners/commands.
@@ -95,8 +95,8 @@ Create the following focused units:
 
 **Files:**
 - Create: `src/main/resources/db/migration/V1__tradingpost.sql`.
-- Create: `src/main/java/dev/jlo/tradingpost/db/Database.java`, `MigrationRunner.java`, `TransactionCallback.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/db/OrderRepository.java`, `SettlementRepository.java`, `MailboxRepository.java`, `MarketRepository.java`, `ReviewRepository.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/db/Database.java`, `MigrationRunner.java`, `TransactionCallback.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/db/OrderRepository.java`, `SettlementRepository.java`, `MailboxRepository.java`, `MarketRepository.java`, `ReviewRepository.java`.
 - Create: domain records and enums listed in the file map.
 
 **Interfaces:**
@@ -116,7 +116,7 @@ Create the following focused units:
 - [ ] Implement repository methods with prepared statements only. `reserveMatch` must lock orders in deterministic UUID order, validate market and active statuses, calculate `min(sell.qty_remaining,buy.qty_remaining)`, decrement both, insert fill and settlement, and commit through `Database.transaction`.
 - [ ] Implement repository reads for best bids/asks, paginated browse, player orders, expired orders, stale settlements, and mailbox rows.
 - [ ] Add repository tests against Testcontainers PostgreSQL for migrations, unique keys, partial fill decrement, concurrent lock behavior, and duplicate delivery prevention.
-- [ ] Run `./gradlew test --tests 'dev.jlo.tradingpost.db.*'`; expected result is PASS.
+- [ ] Run `./gradlew test --tests 'dev.mintychochip.tradingpost.db.*'`; expected result is PASS.
 - [ ] Commit: `feat: add TradingPost PostgreSQL schema and repositories`.
 
 ---
@@ -124,10 +124,10 @@ Create the following focused units:
 ### Task 3: Implement money math and pure order matching
 
 **Files:**
-- Create: `src/main/java/dev/jlo/tradingpost/money/MoneyMath.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/market/MatchingEngine.java`.
-- Create: `src/test/java/dev/jlo/tradingpost/money/MoneyMathTest.java`.
-- Create: `src/test/java/dev/jlo/tradingpost/market/MatchingEngineTest.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/money/MoneyMath.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/market/MatchingEngine.java`.
+- Create: `src/test/java/dev/mintychochip/tradingpost/money/MoneyMathTest.java`.
+- Create: `src/test/java/dev/mintychochip/tradingpost/market/MatchingEngineTest.java`.
 
 **Interfaces:**
 - `MoneyMath.canonical(BigDecimal amount, int scale): BigDecimal` uses `RoundingMode.UNNECESSARY`.
@@ -142,7 +142,7 @@ Create the following focused units:
 - [ ] Implement `MoneyMath` with no floating-point operations.
 - [ ] Implement `MatchingEngine` as a pure class with immutable decisions; it must never mutate repository rows or call Mint.
 - [ ] Add tests that assert every decision includes source order, counter order, quantity, execution price, gross, tax, and seller net.
-- [ ] Run `./gradlew test --tests 'dev.jlo.tradingpost.money.*' --tests 'dev.jlo.tradingpost.market.*'`; expected result is PASS.
+- [ ] Run `./gradlew test --tests 'dev.mintychochip.tradingpost.money.*' --tests 'dev.mintychochip.tradingpost.market.*'`; expected result is PASS.
 - [ ] Commit: `feat: add TradingPost price matching and money math`.
 
 ---
@@ -150,12 +150,12 @@ Create the following focused units:
 ### Task 4: Implement settlement intents, Mint transfers, and recovery
 
 **Files:**
-- Create: `src/main/java/dev/jlo/tradingpost/settlement/SettlementService.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/settlement/SettlementRecoveryWorker.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/settlement/ReconciliationWorker.java`.
-- Modify: `src/main/java/dev/jlo/tradingpost/mint/MintGateway.java`.
-- Create: `src/test/java/dev/jlo/tradingpost/settlement/SettlementStateMachineTest.java`.
-- Create: `src/test/java/dev/jlo/tradingpost/settlement/RecoveryIntegrationTest.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/settlement/SettlementService.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/settlement/SettlementRecoveryWorker.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/settlement/ReconciliationWorker.java`.
+- Modify: `src/main/java/dev/mintychochip/tradingpost/mint/MintGateway.java`.
+- Create: `src/test/java/dev/mintychochip/tradingpost/settlement/SettlementStateMachineTest.java`.
+- Create: `src/test/java/dev/mintychochip/tradingpost/settlement/RecoveryIntegrationTest.java`.
 
 **Interfaces:**
 - `SettlementService.submitReserved(UUID settlementId): CompletionStage<Void>` loads one reserved intent, builds one balanced Mint transfer, and advances based on the `OperationOutcome`.
@@ -173,7 +173,7 @@ Create the following focused units:
 - [ ] Implement match compensation to restore both order quantities and mark the fill `VOIDED` in one AH transaction.
 - [ ] Implement operator review insertion for failed refunds, failed fee refunds, escrow divergence, and ambiguous inventory returns.
 - [ ] Write unit tests for every transition and crash point: before Mint, after Mint commit before AH advance, after money settlement before delivery, rejection, duplicate retry, and duplicate delivery.
-- [ ] Run `./gradlew test --tests 'dev.jlo.tradingpost.settlement.*'`; expected result is PASS.
+- [ ] Run `./gradlew test --tests 'dev.mintychochip.tradingpost.settlement.*'`; expected result is PASS.
 - [ ] Commit: `feat: add durable Mint settlement recovery`.
 
 ---
@@ -181,11 +181,11 @@ Create the following focused units:
 ### Task 5: Implement orders, transient Sell Now, mailbox, and expiry
 
 **Files:**
-- Create: `src/main/java/dev/jlo/tradingpost/items/ItemCodec.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/market/OrderService.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/settlement/ExpiryWorker.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/mailbox/MailboxService.java`.
-- Create: `src/test/java/dev/jlo/tradingpost/items/ItemCodecTest.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/items/ItemCodec.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/market/OrderService.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/settlement/ExpiryWorker.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/mailbox/MailboxService.java`.
+- Create: `src/test/java/dev/mintychochip/tradingpost/items/ItemCodecTest.java`.
 
 **Interfaces:**
 - `ItemCodec.encode(ItemStack): byte[]` uses Paper's item-byte serialization.
@@ -205,7 +205,7 @@ Create the following focused units:
 - [ ] Implement cancel and expiry transitions with settlement intents created in AH transactions before Mint calls.
 - [ ] Add a crash-after-removal regression test: a transient Sell Now order must be durable before matching; recovery must have a non-null sell-order source and either deliver a split item or return the remainder.
 - [ ] Add mailbox claim/reconnect tests for full inventory, crash after `CLAIMING`, and matching fingerprint present/absent.
-- [ ] Run `./gradlew test --tests 'dev.jlo.tradingpost.items.*' --tests 'dev.jlo.tradingpost.market.OrderService*'`; expected result is PASS.
+- [ ] Run `./gradlew test --tests 'dev.mintychochip.tradingpost.items.*' --tests 'dev.mintychochip.tradingpost.market.OrderService*'`; expected result is PASS.
 - [ ] Commit: `feat: add TradingPost order and mailbox lifecycle`.
 
 ---
@@ -213,10 +213,10 @@ Create the following focused units:
 ### Task 6: Add markets, posts, commands, and permissions
 
 **Files:**
-- Create: `src/main/java/dev/jlo/tradingpost/post/TradingPostRegistry.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/post/TradingPostListener.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/command/TradingPostCommands.java`.
-- Modify: `src/main/java/dev/jlo/tradingpost/TradingPostPlugin.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/post/TradingPostRegistry.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/post/TradingPostListener.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/command/TradingPostCommands.java`.
+- Modify: `src/main/java/dev/mintychochip/tradingpost/TradingPostPlugin.java`.
 
 **Interfaces:**
 - `TradingPostRegistry.marketAt(Location): Optional<MarketContext>` uses exact registered block coordinates.
@@ -238,13 +238,13 @@ Create the following focused units:
 ### Task 7: Implement asynchronous inventory GUI
 
 **Files:**
-- Create: `src/main/java/dev/jlo/tradingpost/ui/TradingPostHolder.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/ui/TradingPostMenu.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/ui/OrderDetailMenu.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/ui/SellMenu.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/ui/BuyOrderMenu.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/ui/MyOrdersMenu.java`.
-- Create: `src/main/java/dev/jlo/tradingpost/ui/MailboxMenu.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/ui/TradingPostHolder.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/ui/TradingPostMenu.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/ui/OrderDetailMenu.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/ui/SellMenu.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/ui/BuyOrderMenu.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/ui/MyOrdersMenu.java`.
+- Create: `src/main/java/dev/mintychochip/tradingpost/ui/MailboxMenu.java`.
 
 **Interfaces:**
 - Every menu uses an `InventoryHolder` subtype carrying `marketName`, `playerUuid`, `page`, and current screen.
@@ -267,7 +267,7 @@ Create the following focused units:
 ### Task 8: Wire workers, lifecycle, and full verification
 
 **Files:**
-- Modify: `src/main/java/dev/jlo/tradingpost/TradingPostPlugin.java`.
+- Modify: `src/main/java/dev/mintychochip/tradingpost/TradingPostPlugin.java`.
 - Modify: `src/main/resources/config.yml`.
 - Create: `docs/superpowers/verification/2026-08-04-tradingpost-smoke.md` only if the smoke procedure needs durable operator documentation.
 

@@ -1,6 +1,6 @@
 name: TradingPost
 version: '1.0.0'
-main: dev.jlo.tradingpost.TradingPostPlugin
+main: dev.mintychochip.tradingpost.TradingPostPlugin
 api-version: '1.21'
 author: jlo
 load: POSTWORLD

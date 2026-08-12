@@ -4,14 +4,14 @@
 
 **Goal:** Split TradingPost into publishable `api` and `paper` Gradle modules and configure GitHub Packages publication for `aincraft-org/tradingpost`.
 
-**Architecture:** The root project becomes an aggregate/base project. `api` is a Java library exposing `dev.jlo.tradingpost.api.TradingPostApi`; `paper` is the Java library containing the existing Paper plugin implementation and depends on `api`. Root publishing conventions create `tradingpost-api` and `tradingpost-paper` Maven artifacts and publish to the repository selected by `gpr.owner`/`gpr.repo`, defaulting to `aincraft-org/tradingpost`.
+**Architecture:** The root project becomes an aggregate/base project. `api` is a Java library exposing `dev.mintychochip.tradingpost.api.TradingPostApi`; `paper` is the Java library containing the existing Paper plugin implementation and depends on `api`. Root publishing conventions create `tradingpost-api` and `tradingpost-paper` Maven artifacts and publish to the repository selected by `gpr.owner`/`gpr.repo`, defaulting to `aincraft-org/tradingpost`.
 
 **Tech Stack:** Gradle Kotlin DSL, Java 25, Paper API, Maven Publish, GitHub Actions.
 
 ## Global Constraints
 
-- Preserve the existing `dev.jlo.tradingpost.*` implementation namespaces.
-- Publish artifacts as `dev.jlo.tradingpost:tradingpost-api` and `dev.jlo.tradingpost:tradingpost-paper`.
+- Preserve the existing `dev.mintychochip.tradingpost.*` implementation namespaces.
+- Publish artifacts as `dev.mintychochip.tradingpost:tradingpost-api` and `dev.mintychochip.tradingpost:tradingpost-paper`.
 - GitHub Packages URL must default to `https://maven.pkg.github.com/aincraft-org/tradingpost`.
 - Credentials must come from `GITHUB_ACTOR`/`GITHUB_TOKEN` or `gpr.user`/`gpr.key`; no secrets in the repository.
 - Keep the existing Paper plugin buildable and its tests runnable.
@@ -55,12 +55,12 @@
 ### Task 3: Add the public API contract
 
 **Files:**
-- Create: `api/src/main/java/dev/jlo/tradingpost/api/TradingPostApi.java`
-- Create: `api/src/test/java/dev/jlo/tradingpost/api/TradingPostApiTest.java`
+- Create: `api/src/main/java/dev/mintychochip/tradingpost/api/TradingPostApi.java`
+- Create: `api/src/test/java/dev/mintychochip/tradingpost/api/TradingPostApiTest.java`
 
 **Interfaces:**
 ```java
-package dev.jlo.tradingpost.api;
+package dev.mintychochip.tradingpost.api;
 
 public final class TradingPostApi {
     public static final String API_VERSION = "1.0.0";
