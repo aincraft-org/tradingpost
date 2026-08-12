@@ -1,0 +1,37 @@
+name: TradingPost
+version: '1.0.0'
+main: dev.jlo.tradingpost.TradingPostPlugin
+api-version: '1.21'
+author: jlo
+load: POSTWORLD
+
+libraries:
+  - com.zaxxer:HikariCP:6.2.1
+  - org.postgresql:postgresql:42.7.5
+
+dependencies:
+  server:
+    craftux-paper:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Mint:
+      load: BEFORE
+      required: true
+      join-classpath: true
+
+commands:
+  post:
+    description: Open the nearby villager Trading Post
+    usage: /post [market]
+    permission: tradingpost.use
+  postadmin:
+    description: Manage Trading Post markets and posts
+    usage: /postadmin <market|post> ...
+    permission: tradingpost.admin
+
+permissions:
+  tradingpost.use:
+    default: true
+  tradingpost.admin:
+    default: op
