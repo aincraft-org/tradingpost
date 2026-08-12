@@ -1,0 +1,27 @@
+database:
+  jdbc-url: jdbc:postgresql://localhost:5432/mint
+  username: mint
+  password: change-me
+  schema: tradingpost
+  maximum-pool-size: 8
+
+mint:
+  client-id: tradingpost:plugin
+  currency-id: mint:credits
+  escrow-account: tradingpost:escrow
+  fee-account: tradingpost:fees
+  tax-account: tradingpost:tax
+
+market:
+  fee-bps: 100
+  tax-bps: 500
+  post-radius: 4
+  max-sell-orders: 30
+  max-buy-orders: 30
+  max-buy-quantity: 576
+  durations: [1h, 6h, 12h, 24h, 72h]
+  expiry-sweep-seconds: 60
+  recovery-sweep-seconds: 15
+  reconciliation-seconds: 600
+
+shutdown-grace-seconds: 10
