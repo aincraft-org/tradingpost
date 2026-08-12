@@ -9,7 +9,7 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2" apply false
 }
 
-group = "dev.jlo.tradingpost"
+group = "dev.mintychochip"
 version = providers.gradleProperty("tradingpost.version")
     .orElse(providers.environmentVariable("TRADINGPOST_VERSION"))
     .getOrElse("1.0.0-SNAPSHOT")

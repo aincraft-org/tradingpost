@@ -23,11 +23,11 @@
 
 **Files:**
 - Create: `src/main/resources/db/migration/V2__villager_trading_posts.sql`
-- Modify: `src/main/java/dev/jlo/tradingpost/db/MigrationRunner.java`
-- Modify: `src/main/java/dev/jlo/tradingpost/db/MarketRepository.java`
-- Modify: `src/main/java/dev/jlo/tradingpost/domain/TradingPostBlock.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/db/MigrationRunner.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/db/MarketRepository.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/domain/TradingPostBlock.java`
 - Modify: `src/main/resources/db/migration/V1__tradingpost.sql` only if needed to keep fresh installs equivalent
-- Test: `src/test/java/dev/jlo/tradingpost/db/PostgresRepositoryTest.java`
+- Test: `src/test/java/dev/mintychochip/tradingpost/db/PostgresRepositoryTest.java`
 
 **Interfaces:**
 - `TradingPostBlock` gains `UUID entityId` while retaining `id`, `marketName`, `world`, and block coordinates.
@@ -40,7 +40,7 @@
 - [ ] Add V2 with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS entity_uuid uuid`, unique partial indexes for non-null entity UUIDs and NPC market names, and a repository precheck that rejects reuse of legacy market names; retain world/coordinate columns for saved radius locations.
 - [ ] Update migration loading/version bookkeeping so a fresh or existing schema applies V2 without rerunning it.
 - [ ] Update repository SQL and `TradingPostBlock` construction to round-trip entity UUIDs, including nullable legacy rows if the database still contains old block posts.
-- [ ] Run `./gradlew test --tests 'dev.jlo.tradingpost.db.PostgresRepositoryTest'` and verify PASS.
+- [ ] Run `./gradlew test --tests 'dev.mintychochip.tradingpost.db.PostgresRepositoryTest'` and verify PASS.
 - [ ] Commit the persistence change as `feat: persist villager trading posts`.
 
 ---
@@ -48,10 +48,10 @@
 ### Task 2: Make registry access entity-based
 
 **Files:**
-- Modify: `src/main/java/dev/jlo/tradingpost/post/TradingPostRegistry.java`
-- Modify: `src/main/java/dev/jlo/tradingpost/post/PostAccess.java`
-- Modify: `src/main/java/dev/jlo/tradingpost/domain/TradingPostBlock.java` if naming/accessors need alignment
-- Test: `src/test/java/dev/jlo/tradingpost/post/TradingPostAccessTest.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/post/TradingPostRegistry.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/post/PostAccess.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/domain/TradingPostBlock.java` if naming/accessors need alignment
+- Test: `src/test/java/dev/mintychochip/tradingpost/post/TradingPostAccessTest.java`
 
 **Interfaces:**
 - `TradingPostRegistry.marketAt(Entity)` returns `Optional<MarketContext>` only for registered villager UUIDs.
@@ -73,12 +73,12 @@
 ### Task 3: Wire villager commands and events
 
 **Files:**
-- Modify: `src/main/java/dev/jlo/tradingpost/command/TradingPostCommands.java`
-- Modify: `src/main/java/dev/jlo/tradingpost/post/TradingPostListener.java`
-- Modify: `src/main/java/dev/jlo/tradingpost/TradingPostPlugin.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/command/TradingPostCommands.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/post/TradingPostListener.java`
+- Modify: `src/main/java/dev/mintychochip/tradingpost/TradingPostPlugin.java`
 - Modify: `src/main/resources/paper-plugin.yml`
 - Modify: `src/main/resources/config.yml` only for user-facing post wording
-- Test: `src/test/java/dev/jlo/tradingpost/post/TradingPostAccessTest.java` or a focused command/listener test if existing mocks support entities
+- Test: `src/test/java/dev/mintychochip/tradingpost/post/TradingPostAccessTest.java` or a focused command/listener test if existing mocks support entities
 
 **Interfaces:**
 - `/postadmin post set <market>` targets the player's looked-at `Villager` and calls `registry.registerPost`.
