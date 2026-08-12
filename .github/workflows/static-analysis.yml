@@ -1,0 +1,56 @@
+name: Static analysis
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: static-analysis-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false
+
+jobs:
+  analysis:
+    name: PMD + Checkstyle + SpotBugs + Google Java Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x gradlew
+
+      - name: Run static analysis
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          ./gradlew
+          :api:spotlessCheck
+          :paper:spotlessCheck
+          :api:checkstyleMain
+          :paper:checkstyleMain
+          :api:pmdMain
+          :paper:pmdMain
+          :api:spotbugsMain
+          --console=plain
