@@ -1,4 +1,10 @@
+import com.diffplug.gradle.spotless.SpotlessExtension
+import com.github.spotbugs.snom.SpotBugsTask
 import org.gradle.api.plugins.BasePluginExtension
+import org.gradle.api.plugins.quality.Checkstyle
+import org.gradle.api.plugins.quality.CheckstyleExtension
+import org.gradle.api.plugins.quality.Pmd
+import org.gradle.api.plugins.quality.PmdExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.javadoc.Javadoc
@@ -7,6 +13,8 @@ import org.gradle.external.javadoc.StandardJavadocDocletOptions
 plugins {
     base
     id("xyz.jpenilla.run-paper") version "3.0.2" apply false
+    id("com.github.spotbugs") version "6.1.13" apply false
+    id("com.diffplug.spotless") version "7.0.2" apply false
 }
 
 group = "dev.mintychochip"
@@ -29,12 +37,50 @@ subprojects {
 
     plugins.withId("java-library") {
         apply(plugin = "maven-publish")
+        apply(plugin = "pmd")
+        apply(plugin = "checkstyle")
+        apply(plugin = "com.github.spotbugs")
+        apply(plugin = "com.diffplug.spotless")
 
         val artifactBase = "tradingpost-$name"
+        val isPaper = name == "paper"
+
         extensions.configure<BasePluginExtension> {
             archivesName.set(artifactBase)
         }
-
+        extensions.configure<SpotlessExtension> {
+            java {
+                googleJavaFormat("1.27.0")
+                target("src/**/*.java")
+            }
+        }
+        extensions.configure<PmdExtension> {
+            toolVersion = "7.10.0"
+            isConsoleOutput = true
+            isIgnoreFailures = false
+            ruleSetFiles = files(rootProject.file("config/pmd/ruleset.xml"))
+            ruleSets = emptyList()
+        }
+        extensions.configure<CheckstyleExtension> {
+            toolVersion = "10.21.1"
+            isIgnoreFailures = false
+            configFile = rootProject.file("config/checkstyle/checkstyle.xml")
+            maxWarnings = 0
+        }
+        tasks.withType<Checkstyle>().configureEach {
+            if (name.contains("Test", ignoreCase = true)) enabled = false
+        }
+        tasks.withType<Pmd>().configureEach {
+            if (name.contains("Test", ignoreCase = true)) enabled = false
+        }
+        tasks.withType<SpotBugsTask>().configureEach {
+            if (name.contains("Test", ignoreCase = true) || isPaper) {
+                enabled = false
+            } else {
+                reports.create("xml") { required.set(true) }
+                reports.create("html") { required.set(true) }
+            }
+        }
         tasks.withType<Javadoc>().configureEach {
             (options as StandardJavadocDocletOptions).apply {
                 encoding = "UTF-8"
