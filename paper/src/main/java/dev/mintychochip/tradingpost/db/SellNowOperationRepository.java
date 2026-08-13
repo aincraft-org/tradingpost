@@ -17,6 +17,10 @@ public final class SellNowOperationRepository {
     this.schema = schema;
   }
 
+  public String schema() {
+    return schema;
+  }
+
   public void insert(Connection connection, SellNowOperation operation) throws SQLException {
     String sql =
         "INSERT INTO "

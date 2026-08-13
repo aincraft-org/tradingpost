@@ -9,11 +9,16 @@ import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MailboxRepository;
 import dev.mintychochip.tradingpost.db.OrderRepository;
 import dev.mintychochip.tradingpost.db.SettlementRepository;
+import dev.mintychochip.tradingpost.db.SellNowOperationRepository;
+import dev.mintychochip.tradingpost.db.ReviewRepository;
 import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.domain.OrderStatus;
 import dev.mintychochip.tradingpost.domain.Settlement;
 import dev.mintychochip.tradingpost.domain.SettlementKind;
 import dev.mintychochip.tradingpost.domain.SettlementState;
+import dev.mintychochip.tradingpost.domain.SellNowOperation;
+import dev.mintychochip.tradingpost.domain.SellNowOperationState;
+import dev.mintychochip.tradingpost.domain.SellOrder;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
 import dev.mintychochip.tradingpost.mint.MintOperations;
 import java.time.Instant;
@@ -31,6 +36,8 @@ public final class SettlementService {
   private final MintOperations mint;
   private final AsyncExecutor executor;
   private final SettlementTransferBuilder transfers;
+  private final SellNowOperationRepository operations;
+  private final ReviewRepository reviews;
   private final SettlementStateMachine states = new SettlementStateMachine();
 
   public SettlementService(
@@ -42,6 +49,8 @@ public final class SettlementService {
     this.mint = Objects.requireNonNull(mint, "mint");
     this.executor = Objects.requireNonNull(executor, "executor");
     this.transfers = new SettlementTransferBuilder(config);
+    this.operations = new SellNowOperationRepository(config.schema());
+    this.reviews = new ReviewRepository(config.schema());
   }
 
   public CompletionStage<Void> submitReserved(UUID settlementId) {
@@ -51,6 +60,9 @@ public final class SettlementService {
         context -> {
           if (context.settlement().state() == SettlementState.DELIVERED
               || context.settlement().state() == SettlementState.FAILED) {
+            return CompletableFuture.completedFuture(null);
+          }
+          if (context.operationId() != null && operationTerminal(context.operationId())) {
             return CompletableFuture.completedFuture(null);
           }
           if (context.settlement().state() == SettlementState.MONEY_SETTLED) {
@@ -79,6 +91,9 @@ public final class SettlementService {
         context -> {
           if (context.settlement().state() == SettlementState.DELIVERED
               || context.settlement().state() == SettlementState.FAILED) {
+            return CompletableFuture.completedFuture(null);
+          }
+          if (context.operationId() != null && operationTerminal(context.operationId())) {
             return CompletableFuture.completedFuture(null);
           }
           if (context.settlement().state() == SettlementState.MONEY_SETTLED) {
@@ -154,6 +169,11 @@ public final class SettlementService {
                       SettlementState.MONEY_SETTLED,
                       SettlementState.DELIVERED,
                       null);
+                  if (settlement.kind() == SettlementKind.MATCH_SETTLEMENT
+                      && fillOperationId(connection, settlement.fillId()) != null) {
+                    finalizeSellNowIfComplete(
+                        connection, fillOperationId(connection, settlement.fillId()));
+                  }
                   return null;
                 }));
   }
@@ -174,10 +194,11 @@ public final class SettlementService {
             database.transaction(
                 connection -> {
                   if (context.settlement().kind() == SettlementKind.MATCH_SETTLEMENT) {
-                    // Restore both order remainders and the full sell stack on the book; do not
-                    // mailbox
-                    // the filled portion (that would double-grant the item).
-                    orders.compensateFill(connection, context.settlement().fillId());
+                    if (context.operationId() == null) {
+                      orders.compensateFill(connection, context.settlement().fillId());
+                    } else {
+                      compensateSellNow(connection, context, reason);
+                    }
                   } else if (context.settlement().kind() == SettlementKind.LISTING_FEE) {
                     var sell =
                         orders
@@ -215,6 +236,153 @@ public final class SettlementService {
                 }));
   }
 
+  private boolean operationTerminal(UUID operationId) {
+    return executor
+        .submit(() -> database.transaction(connection -> operations.find(connection, operationId, false)))
+        .toCompletableFuture()
+        .join()
+        .map(SellNowOperation::state)
+        .map(
+            state ->
+                state == SellNowOperationState.COMPLETED
+                    || state == SellNowOperationState.FAILED
+                    || state == SellNowOperationState.REVIEW)
+        .orElse(false);
+  }
+
+  private void compensateSellNow(
+      java.sql.Connection connection, SettlementContext context, String reason)
+      throws java.sql.SQLException {
+    SellNowOperation operation =
+        operations
+            .find(connection, context.operationId(), true)
+            .orElseThrow(() -> new IllegalStateException("Sell Now operation missing"));
+    if (operation.state() == SellNowOperationState.COMPLETED
+        || operation.state() == SellNowOperationState.REVIEW
+        || operation.state() == SellNowOperationState.FAILED) {
+      return;
+    }
+    boolean committed =
+        hasCommittedOrDeliveredFill(connection, context.operationId())
+            || context.settlement().state() == SettlementState.MONEY_SETTLED
+            || context.settlement().state() == SettlementState.DELIVERED;
+    if (committed) {
+      operations.advance(
+          connection,
+          operation.operationId(),
+          operation.state(),
+          SellNowOperationState.REVIEW,
+          reason);
+      reviews.insert(
+          connection,
+          UUID.randomUUID(),
+          operation.seller(),
+          operation.sourceFingerprint(),
+          "{\"type\":\"SELL_NOW_MIXED_OUTCOME\",\"operation_id\":\""
+              + operation.operationId()
+              + "\",\"settlement_id\":\""
+              + context.settlement().id()
+              + "\"}");
+      return;
+    }
+    SellOrder sell =
+        orders
+            .findSell(connection, operation.sellOrderId(), true)
+            .orElseThrow(() -> new IllegalStateException("Sell Now order missing"));
+    if (sell.quantityRemaining() > 0) {
+      mailbox.insertDelivery(
+          connection,
+          operation.operationId(),
+          operation.marketName(),
+          operation.seller(),
+          operation.sourceItemBlob(),
+          operation.sourceFingerprint(),
+          "SELL_NOW_FAILED");
+    }
+    orders.cancelSell(connection, sell.id(), sell.seller());
+    operations.advance(
+        connection,
+        operation.operationId(),
+        operation.state(),
+        SellNowOperationState.FAILED,
+        reason);
+  }
+
+  private UUID fillOperationId(java.sql.Connection connection, UUID fillId)
+      throws java.sql.SQLException {
+    return orders
+        .findFillContext(connection, fillId, false)
+        .map(OrderRepository.FillContext::operationId)
+        .orElse(null);
+  }
+
+  private void finalizeSellNowIfComplete(java.sql.Connection connection, UUID operationId)
+      throws java.sql.SQLException {
+    SellNowOperation operation =
+        operations
+            .find(connection, operationId, true)
+            .orElseThrow(() -> new IllegalStateException("Sell Now operation missing"));
+    if (operation.state() == SellNowOperationState.COMPLETED
+        || operation.state() == SellNowOperationState.FAILED
+        || operation.state() == SellNowOperationState.REVIEW) {
+      return;
+    }
+    try (var statement =
+        connection.prepareStatement(
+            "SELECT count(*) FILTER (WHERE status <> 'DELIVERED') FROM "
+                + operations.schema()
+                + ".fills WHERE operation_id=?")) {
+      statement.setObject(1, operationId);
+      try (var rows = statement.executeQuery()) {
+        rows.next();
+        if (rows.getInt(1) != 0) {
+          if (operation.state() == SellNowOperationState.RESERVED) {
+            operations.advance(
+                connection,
+                operationId,
+                SellNowOperationState.RESERVED,
+                SellNowOperationState.SETTLING,
+                null);
+          }
+          return;
+        }
+      }
+    }
+    SellOrder sell =
+        orders
+            .findSell(connection, operation.sellOrderId(), true)
+            .orElseThrow(() -> new IllegalStateException("Sell Now order missing"));
+    if (sell.quantityRemaining() > 0) {
+      mailbox.insertDelivery(
+          connection,
+          operation.operationId(),
+          operation.marketName(),
+          operation.seller(),
+          sell.itemBlob(),
+          sell.fingerprint(),
+          "SELL_NOW_REMAINDER");
+    }
+    orders.cancelSell(connection, sell.id(), sell.seller());
+    SellNowOperationState expected = operation.state();
+    operations.advance(
+        connection, operationId, expected, SellNowOperationState.COMPLETED, null);
+  }
+
+  private boolean hasCommittedOrDeliveredFill(java.sql.Connection connection, UUID operationId)
+      throws java.sql.SQLException {
+    try (var statement =
+        connection.prepareStatement(
+            "SELECT EXISTS (SELECT 1 FROM "
+                + operations.schema()
+                + ".settlements WHERE operation_id=? AND state IN ('MONEY_SETTLED','DELIVERED'))")) {
+      statement.setObject(1, operationId);
+      try (var rows = statement.executeQuery()) {
+        rows.next();
+        return rows.getBoolean(1);
+      }
+    }
+  }
+
   private SettlementContext load(java.sql.Connection connection, UUID id)
       throws java.sql.SQLException {
     Settlement settlement =
@@ -226,7 +394,7 @@ public final class SettlementService {
           orders
               .findFillContext(connection, settlement.fillId(), true)
               .orElseThrow(() -> new IllegalStateException("fill missing: " + settlement.fillId()));
-      return new SettlementContext(settlement, fill, null, null);
+      return new SettlementContext(settlement, fill, null, null, fill.operationId());
     }
     if (settlement.kind() == SettlementKind.BUY_ESCROW
         || settlement.kind() == SettlementKind.REFUND) {
@@ -235,14 +403,14 @@ public final class SettlementService {
               .findBuy(connection, settlement.orderId(), true)
               .orElseThrow(
                   () -> new IllegalStateException("buy order missing: " + settlement.orderId()));
-      return new SettlementContext(settlement, null, buy.buyer(), null);
+      return new SettlementContext(settlement, null, buy.buyer(), null, null);
     }
     var sell =
         orders
             .findSell(connection, settlement.orderId(), true)
             .orElseThrow(
                 () -> new IllegalStateException("sell order missing: " + settlement.orderId()));
-    return new SettlementContext(settlement, null, null, sell.seller());
+    return new SettlementContext(settlement, null, null, sell.seller(), null);
   }
 
   private SettlementTransferBuilder.TransferPlan plan(SettlementContext context) {
@@ -265,5 +433,9 @@ public final class SettlementService {
   }
 
   private record SettlementContext(
-      Settlement settlement, OrderRepository.FillContext fill, UUID buyer, UUID seller) {}
+      Settlement settlement,
+      OrderRepository.FillContext fill,
+      UUID buyer,
+      UUID seller,
+      UUID operationId) {}
 }
