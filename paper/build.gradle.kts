@@ -44,8 +44,9 @@ val craftuxVersion = "1.0.2"
 val craftuxApi = "dev.craftux:craftux-api:$craftuxVersion"
 val craftuxCommon = "dev.craftux:craftux-common:$craftuxVersion"
 val craftuxPaper = "dev.craftux:craftux-paper:$craftuxVersion"
-val mintApi = "dev.jlo.mint:mint-api:1.0.0"
-val mintPaper = "dev.jlo.mint:mint-paper:1.0.0"
+val mintVersion = "26.8.12.10"
+val mintApi = "dev.mintychochip.mint:mint-api:$mintVersion"
+val mintPaper = "dev.mintychochip.mint:mint-paper:$mintVersion"
 
 val mintPaperRuntime by configurations.creating {
     isCanBeConsumed = false

@@ -4,21 +4,20 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.jlo.mint.api.id.AccountId;
-import dev.jlo.mint.api.id.ActorId;
-import dev.jlo.mint.api.id.ClientId;
-import dev.jlo.mint.api.id.CurrencyId;
-import dev.jlo.mint.api.id.IdempotencyKey;
-import dev.jlo.mint.api.id.NamespaceId;
-import dev.jlo.mint.api.ledger.BalanceSnapshot;
-import dev.jlo.mint.api.ledger.Posting;
-import dev.jlo.mint.api.ledger.TransactionKind;
-import dev.jlo.mint.api.ledger.TransactionReceipt;
-import dev.jlo.mint.api.result.Committed;
-import dev.jlo.mint.api.result.OperationOutcome;
-import dev.jlo.mint.api.result.Rejected;
-import dev.jlo.mint.api.result.Rejection;
-import dev.jlo.mint.api.result.RejectionCode;
+import dev.mintychochip.mint.api.id.AccountId;
+import dev.mintychochip.mint.api.id.ClientId;
+import dev.mintychochip.mint.api.id.CurrencyId;
+import dev.mintychochip.mint.api.id.IdempotencyKey;
+import dev.mintychochip.mint.api.id.NamespaceId;
+import dev.mintychochip.mint.api.ledger.BalanceSnapshot;
+import dev.mintychochip.mint.api.ledger.Posting;
+import dev.mintychochip.mint.api.ledger.TransactionKind;
+import dev.mintychochip.mint.api.ledger.TransactionReceipt;
+import dev.mintychochip.mint.api.result.Committed;
+import dev.mintychochip.mint.api.result.OperationOutcome;
+import dev.mintychochip.mint.api.result.Rejected;
+import dev.mintychochip.mint.api.result.Rejection;
+import dev.mintychochip.mint.api.result.RejectionCode;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MarketRepository;
@@ -548,11 +547,7 @@ class SettlementServiceIntegrationTest {
 
     @Override
     public CompletionStage<OperationOutcome<TransactionReceipt>> transfer(
-        IdempotencyKey key,
-        ActorId actor,
-        List<Posting> postings,
-        String reason,
-        Map<String, String> metadata) {
+        IdempotencyKey key, List<Posting> postings, String reason, Map<String, String> metadata) {
       transferKeys.add(key.value());
       if (rejectNext.compareAndSet(true, false)) {
         return CompletableFuture.completedFuture(

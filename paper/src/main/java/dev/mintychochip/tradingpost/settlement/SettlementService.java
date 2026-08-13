@@ -1,9 +1,9 @@
 package dev.mintychochip.tradingpost.settlement;
 
-import dev.jlo.mint.api.id.AccountId;
-import dev.jlo.mint.api.result.Committed;
-import dev.jlo.mint.api.result.OperationOutcome;
-import dev.jlo.mint.api.result.Rejected;
+import dev.mintychochip.mint.api.id.AccountId;
+import dev.mintychochip.mint.api.result.Committed;
+import dev.mintychochip.mint.api.result.OperationOutcome;
+import dev.mintychochip.mint.api.result.Rejected;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MailboxRepository;
@@ -66,11 +66,7 @@ public final class SettlementService {
                       return compensate(context, "required Mint account is missing");
                     }
                     return mint.transfer(
-                            plan.key(),
-                            plan.actor(),
-                            plan.postings(),
-                            plan.reason(),
-                            plan.metadata())
+                            plan.key(), plan.postings(), plan.reason(), plan.metadata())
                         .thenCompose(outcome -> handleOutcome(context, outcome));
                   });
         });
@@ -89,7 +85,8 @@ public final class SettlementService {
             return deliver(settlementId);
           }
           return mint.receipt(
-                  new dev.jlo.mint.api.id.IdempotencyKey(context.settlement().idempotencyKey()))
+                  new dev.mintychochip.mint.api.id.IdempotencyKey(
+                      context.settlement().idempotencyKey()))
               .thenCompose(
                   receipt ->
                       receipt.isPresent()
@@ -163,7 +160,7 @@ public final class SettlementService {
 
   private CompletionStage<Void> handleOutcome(
       SettlementContext context,
-      OperationOutcome<dev.jlo.mint.api.ledger.TransactionReceipt> outcome) {
+      OperationOutcome<dev.mintychochip.mint.api.ledger.TransactionReceipt> outcome) {
     if (outcome instanceof Committed<?>) {
       return markMoneySettled(context).thenCompose(ignored -> deliver(context.settlement().id()));
     }

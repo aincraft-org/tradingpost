@@ -1,5 +1,7 @@
 package dev.mintychochip.tradingpost;
 
+import dev.mintychochip.mint.api.service.MintClientLease;
+import dev.mintychochip.mint.api.service.MintClientReceiver;
 import dev.mintychochip.tradingpost.command.TradingPostCommands;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
@@ -16,12 +18,12 @@ import dev.mintychochip.tradingpost.settlement.ReconciliationWorker;
 import dev.mintychochip.tradingpost.settlement.SettlementRecoveryWorker;
 import dev.mintychochip.tradingpost.settlement.SettlementService;
 import dev.mintychochip.tradingpost.ui.TradingPostMenu;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public final class TradingPostPlugin extends JavaPlugin {
+public final class TradingPostPlugin extends JavaPlugin implements MintClientReceiver {
   private volatile PluginState state = PluginState.STARTING;
   private TradingPostConfig configuration;
   private AsyncExecutor executor;
@@ -43,6 +45,9 @@ public final class TradingPostPlugin extends JavaPlugin {
     try {
       configuration = TradingPostConfig.load(getConfig());
       executor = new AsyncExecutor(32);
+      mint = new MintGateway(configuration);
+      Bukkit.getServicesManager()
+          .register(MintClientReceiver.class, this, this, ServicePriority.Normal);
     } catch (RuntimeException failure) {
       failEnable(failure);
       return;
@@ -79,6 +84,14 @@ public final class TradingPostPlugin extends JavaPlugin {
     getLogger().info("TradingPost is STARTING while PostgreSQL and Mint become ready");
   }
 
+  @Override
+  public void bindMintClient(MintClientLease lease) {
+    if (mint == null) {
+      throw new IllegalStateException("TradingPost is not initialized");
+    }
+    mint.bindMintClient(lease);
+  }
+
   private void tryReady() {
     if (state != PluginState.STARTING || !initializing.compareAndSet(false, true)) {
       return;
@@ -88,16 +101,10 @@ public final class TradingPostPlugin extends JavaPlugin {
       failEnable(startupFailure);
       return;
     }
-    if (!persistenceReady.get()) {
+    if (!persistenceReady.get() || !mint.ready()) {
       initializing.set(false);
       return;
     }
-    Optional<MintGateway> discovered = MintGateway.discover(configuration);
-    if (discovered.isEmpty() || !discovered.get().ready()) {
-      initializing.set(false);
-      return;
-    }
-    mint = discovered.get();
     mint.validateCurrency()
         .thenCombine(
             mint.ensureSystemAccounts(),
@@ -165,8 +172,6 @@ public final class TradingPostPlugin extends JavaPlugin {
                             failEnable(failure);
                             return;
                           }
-                          // CraftUX inventory renderer + quit cleanup; no TradingPostHolder click
-                          // listeners.
                           Bukkit.getPluginManager().registerEvents(menu.asListener(), this);
                           Bukkit.getPluginManager()
                               .registerEvents(
@@ -244,6 +249,10 @@ public final class TradingPostPlugin extends JavaPlugin {
     if (readinessTask >= 0) {
       Bukkit.getScheduler().cancelTask(readinessTask);
       readinessTask = -1;
+    }
+    Bukkit.getServicesManager().unregister(MintClientReceiver.class, this);
+    if (mint != null) {
+      mint.clearMintClient();
     }
     if (menu != null) {
       menu.shutdown();
