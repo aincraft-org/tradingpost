@@ -79,9 +79,21 @@ class PostgresRepositoryTest {
                 connection
                     .createStatement()
                     .executeQuery(
-                        "SELECT count(*) FROM tradingpost_test.schema_version WHERE version IN (1, 2)")) {
+                        "SELECT count(*) FROM tradingpost_test.schema_version WHERE version IN (1, 2, 3)")) {
               versions.next();
-              assertEquals(2, versions.getInt(1));
+              assertEquals(3, versions.getInt(1));
+            }
+            try (var operations =
+                connection
+                    .getMetaData()
+                    .getColumns(null, "tradingpost_test", "sell_now_operations", "operation_id")) {
+              assertTrue(operations.next());
+            }
+            try (var operationIds =
+                connection
+                    .getMetaData()
+                    .getColumns(null, "tradingpost_test", "fills", "operation_id")) {
+              assertTrue(operationIds.next());
             }
             return null;
           });
