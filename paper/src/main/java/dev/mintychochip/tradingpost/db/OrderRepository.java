@@ -264,7 +264,7 @@ public final class OrderRepository {
         "SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at "
             + "FROM "
             + schema
-            + ".sell_orders WHERE status='ACTIVE' AND expires_at<? ORDER BY expires_at ASC LIMIT ?";
+            + ".sell_orders WHERE status='ACTIVE' AND mode='NORMAL' AND expires_at<? ORDER BY expires_at ASC LIMIT ?";
     try (PreparedStatement statement = connection.prepareStatement(sql)) {
       statement.setObject(1, sqlTime(now));
       statement.setInt(2, limit);
@@ -364,7 +364,7 @@ public final class OrderRepository {
       throws SQLException {
     String sql =
         "SELECT f.fill_id,f.market_name,f.sell_order_id,f.buy_order_id,f.quantity,f.unit_price,"
-            + "f.item_blob,f.remaining_item_blob,f.status,f.created_at,s.seller,b.buyer,s.fingerprint "
+            + "f.item_blob,f.remaining_item_blob,f.status,f.created_at,s.seller,b.buyer,s.fingerprint,f.operation_id "
             + "FROM "
             + schema
             + ".fills f JOIN "
@@ -392,7 +392,11 @@ public final class OrderRepository {
                 rows.getObject(10, java.time.OffsetDateTime.class).toInstant());
         return Optional.of(
             new FillContext(
-                fill, (UUID) rows.getObject(11), (UUID) rows.getObject(12), rows.getString(13)));
+                fill,
+                (UUID) rows.getObject(11),
+                (UUID) rows.getObject(12),
+                rows.getString(13),
+                (UUID) rows.getObject(14)));
       }
     }
   }
@@ -544,7 +548,7 @@ public final class OrderRepository {
     String fillSql =
         "INSERT INTO "
             + schema
-            + ".fills(fill_id,market_name,sell_order_id,buy_order_id,quantity,unit_price,item_blob,remaining_item_blob,status) VALUES(?,?,?,?,?,?,?,?,?)";
+            + ".fills(fill_id,market_name,sell_order_id,buy_order_id,quantity,unit_price,item_blob,remaining_item_blob,status,operation_id) VALUES(?,?,?,?,?,?,?,?,?,?)";
     try (PreparedStatement statement = connection.prepareStatement(fillSql)) {
       statement.setObject(1, fillId);
       statement.setString(2, sell.marketName());
@@ -555,6 +559,7 @@ public final class OrderRepository {
       statement.setBytes(7, filledItemBlob);
       statement.setBytes(8, preMatchSellBlob);
       statement.setString(9, SettlementState.RESERVED.name());
+      statement.setObject(10, settlement.operationId());
       statement.executeUpdate();
     }
     updateRemaining(
@@ -581,7 +586,8 @@ public final class OrderRepository {
             "ah/match/" + fillId,
             fillId,
             null,
-            decision.executionPrice().multiply(BigDecimal.valueOf(quantity))));
+            decision.executionPrice().multiply(BigDecimal.valueOf(quantity)),
+            settlement.operationId()));
     return new FillReservation(
         new Fill(
             fillId,
@@ -603,7 +609,7 @@ public final class OrderRepository {
     String sql =
         "INSERT INTO "
             + schema
-            + ".settlements(id,kind,idempotency_key,fill_id,order_id,amount,state) VALUES(?,?,?,?,?,?,?)";
+            + ".settlements(id,kind,idempotency_key,fill_id,order_id,amount,state,operation_id) VALUES(?,?,?,?,?,?,?,?)";
     try (PreparedStatement statement = connection.prepareStatement(sql)) {
       statement.setObject(1, settlement.id());
       statement.setString(2, settlement.kind().name());
@@ -612,6 +618,7 @@ public final class OrderRepository {
       statement.setObject(5, settlement.orderId());
       statement.setBigDecimal(6, settlement.amount());
       statement.setString(7, SettlementState.RESERVED.name());
+      statement.setObject(8, settlement.operationId());
       statement.executeUpdate();
     }
   }
@@ -701,9 +708,21 @@ public final class OrderRepository {
       String idempotencyKey,
       UUID fillId,
       UUID orderId,
-      BigDecimal amount) {}
+      BigDecimal amount,
+      UUID operationId) {
+    public SettlementDraft(
+        UUID id,
+        SettlementKind kind,
+        String idempotencyKey,
+        UUID fillId,
+        UUID orderId,
+        BigDecimal amount) {
+      this(id, kind, idempotencyKey, fillId, orderId, amount, null);
+    }
+  }
 
-  public record FillContext(Fill fill, UUID seller, UUID buyer, String fingerprint) {}
+  public record FillContext(
+      Fill fill, UUID seller, UUID buyer, String fingerprint, UUID operationId) {}
 
   public record Compensation(
       String marketName,

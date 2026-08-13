@@ -24,6 +24,7 @@ public final class MigrationRunner {
           }
           apply(connection, schema, 1, "/db/migration/V1__tradingpost.sql");
           apply(connection, schema, 2, "/db/migration/V2__villager_trading_posts.sql");
+          apply(connection, schema, 3, "/db/migration/V3__sell_now_operations.sql");
           return null;
         });
   }

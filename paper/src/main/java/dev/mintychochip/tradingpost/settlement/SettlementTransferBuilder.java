@@ -1,10 +1,9 @@
 package dev.mintychochip.tradingpost.settlement;
 
-import dev.jlo.mint.api.id.AccountId;
-import dev.jlo.mint.api.id.ActorId;
-import dev.jlo.mint.api.id.IdempotencyKey;
-import dev.jlo.mint.api.ledger.Posting;
-import dev.jlo.mint.api.money.Money;
+import dev.mintychochip.mint.api.id.AccountId;
+import dev.mintychochip.mint.api.id.IdempotencyKey;
+import dev.mintychochip.mint.api.ledger.Posting;
+import dev.mintychochip.mint.api.money.Money;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.money.MoneyMath;
 import java.math.BigDecimal;
@@ -15,11 +14,9 @@ import java.util.UUID;
 
 public final class SettlementTransferBuilder {
   private final TradingPostConfig config;
-  private final ActorId actor;
 
   public SettlementTransferBuilder(TradingPostConfig config) {
     this.config = Objects.requireNonNull(config, "config");
-    this.actor = ActorId.of(config.clientId().namespaceId());
   }
 
   public TransferPlan buyEscrow(UUID orderId, UUID buyer, BigDecimal amount) {
@@ -73,7 +70,6 @@ public final class SettlementTransferBuilder {
   private TransferPlan plan(String key, String reason, List<Posting> postings) {
     return new TransferPlan(
         new IdempotencyKey(key),
-        actor,
         postings,
         reason,
         Map.of("plugin", "tradingpost", "settlement_key", key));
@@ -84,14 +80,9 @@ public final class SettlementTransferBuilder {
   }
 
   public record TransferPlan(
-      IdempotencyKey key,
-      ActorId actor,
-      List<Posting> postings,
-      String reason,
-      Map<String, String> metadata) {
+      IdempotencyKey key, List<Posting> postings, String reason, Map<String, String> metadata) {
     public TransferPlan {
       Objects.requireNonNull(key, "key");
-      Objects.requireNonNull(actor, "actor");
       postings = List.copyOf(Objects.requireNonNull(postings, "postings"));
       Objects.requireNonNull(reason, "reason");
       metadata = Map.copyOf(Objects.requireNonNull(metadata, "metadata"));

@@ -2,11 +2,11 @@ package dev.mintychochip.tradingpost.settlement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import dev.jlo.mint.api.id.AccountId;
-import dev.jlo.mint.api.id.ClientId;
-import dev.jlo.mint.api.id.CurrencyId;
-import dev.jlo.mint.api.id.NamespaceId;
-import dev.jlo.mint.api.ledger.Posting;
+import dev.mintychochip.mint.api.id.AccountId;
+import dev.mintychochip.mint.api.id.ClientId;
+import dev.mintychochip.mint.api.id.CurrencyId;
+import dev.mintychochip.mint.api.id.NamespaceId;
+import dev.mintychochip.mint.api.ledger.Posting;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -73,8 +73,8 @@ class SettlementTransferBuilderTest {
         plan.postings());
   }
 
-  private static dev.jlo.mint.api.money.Money money(String amount) {
-    return new dev.jlo.mint.api.money.Money(
+  private static dev.mintychochip.mint.api.money.Money money(String amount) {
+    return new dev.mintychochip.mint.api.money.Money(
         CurrencyId.parse("mint:credits"), new BigDecimal(amount));
   }
 }

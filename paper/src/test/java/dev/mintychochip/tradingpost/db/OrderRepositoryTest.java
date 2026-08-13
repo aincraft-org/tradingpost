@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.jlo.mint.api.id.AccountId;
-import dev.jlo.mint.api.id.ClientId;
-import dev.jlo.mint.api.id.CurrencyId;
-import dev.jlo.mint.api.id.NamespaceId;
+import dev.mintychochip.mint.api.id.AccountId;
+import dev.mintychochip.mint.api.id.ClientId;
+import dev.mintychochip.mint.api.id.CurrencyId;
+import dev.mintychochip.mint.api.id.NamespaceId;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.domain.BuyOrder;
 import dev.mintychochip.tradingpost.domain.Market;
@@ -65,6 +65,7 @@ class OrderRepositoryTest {
       UUID buyer = UUID.randomUUID();
       UUID sellId = UUID.randomUUID();
       UUID buyId = UUID.randomUUID();
+      UUID operationId = null;
       Instant now = Instant.now();
       SellOrder sell =
           new SellOrder(
@@ -109,7 +110,8 @@ class OrderRepositoryTest {
                     "ignored",
                     null,
                     null,
-                    new BigDecimal("16.00")),
+                    new BigDecimal("16.00"),
+                    operationId),
                 new byte[] {2},
                 new byte[] {3});
             return null;

@@ -4,12 +4,15 @@ import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MailboxRepository;
 import dev.mintychochip.tradingpost.db.OrderRepository;
+import dev.mintychochip.tradingpost.db.SellNowOperationRepository;
 import dev.mintychochip.tradingpost.db.SettlementRepository;
 import dev.mintychochip.tradingpost.domain.BuyOrder;
 import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.domain.OrderStatus;
 import dev.mintychochip.tradingpost.domain.SellOrder;
 import dev.mintychochip.tradingpost.domain.SellOrderMode;
+import dev.mintychochip.tradingpost.domain.SellNowOperation;
+import dev.mintychochip.tradingpost.domain.SellNowOperationState;
 import dev.mintychochip.tradingpost.domain.SettlementKind;
 import dev.mintychochip.tradingpost.items.ItemCodec;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
@@ -110,6 +113,25 @@ public final class OrderService {
                     connection -> {
                       orders.insertSell(connection, order);
                       UUID feeSettlementId = null;
+                      UUID operationId = null;
+                      if (mode == SellOrderMode.INSTANT) {
+                        operationId = UUID.randomUUID();
+                        new SellNowOperationRepository(config.schema())
+                            .insert(
+                                connection,
+                                new SellNowOperation(
+                                    operationId,
+                                    order.id(),
+                                    order.marketName(),
+                                    order.seller(),
+                                    order.itemBlob(),
+                                    order.fingerprint(),
+                                    order.quantity(),
+                                    SellNowOperationState.RESERVED,
+                                    null,
+                                    order.createdAt(),
+                                    order.createdAt()));
+                      }
                       if (mode == SellOrderMode.NORMAL && config.feeBps() > 0) {
                         BigDecimal gross =
                             MoneyMath.total(
@@ -136,7 +158,7 @@ public final class OrderService {
                       }
                       List<UUID> matchSettlements = List.of();
                       if (mode == SellOrderMode.INSTANT) {
-                        matchSettlements = reserveSellNowMatches(connection, orderId);
+                        matchSettlements = reserveSellNowMatches(connection, orderId, operationId);
                       }
                       return new PersistResult(feeSettlementId, matchSettlements);
                     }));
@@ -236,7 +258,8 @@ public final class OrderService {
             failure -> OrderResult.rejected("could not create buy order: " + failure.getMessage()));
   }
 
-  private List<UUID> reserveSellNowMatches(java.sql.Connection connection, UUID sellOrderId)
+  private List<UUID> reserveSellNowMatches(
+      java.sql.Connection connection, UUID sellOrderId, UUID operationId)
       throws java.sql.SQLException {
     SellOrder sell =
         orders
@@ -259,30 +282,12 @@ public final class OrderService {
               "unused",
               decision.sellOrderId(),
               decision.buyOrderId(),
-              decision.executionPrice().multiply(BigDecimal.valueOf(decision.quantity()))),
+              decision.executionPrice().multiply(BigDecimal.valueOf(decision.quantity())),
+              operationId),
           ItemCodec.encode(split.filled()),
           ItemCodec.encode(split.remaining()));
       settlementIds.add(settlementId);
       currentBlob = ItemCodec.encode(split.remaining());
-    }
-    SellOrder after =
-        orders
-            .findSell(connection, sellOrderId, true)
-            .orElseThrow(() -> new IllegalStateException("Sell Now order missing after match"));
-    if (after.quantityRemaining() > 0 && after.status() == OrderStatus.ACTIVE) {
-      mailbox.insert(
-          connection,
-          new MailboxItem(
-              UUID.randomUUID(),
-              after.marketName(),
-              after.seller(),
-              after.itemBlob(),
-              after.fingerprint(),
-              "SELL_NOW_REMAINDER",
-              "UNCLAIMED",
-              null,
-              Instant.now()));
-      orders.cancelSell(connection, sellOrderId, after.seller());
     }
     return List.copyOf(settlementIds);
   }
