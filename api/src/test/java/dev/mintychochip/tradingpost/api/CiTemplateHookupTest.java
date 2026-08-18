@@ -32,8 +32,7 @@ class CiTemplateHookupTest {
           continue;
         }
         assertTrue(
-            isScheduleOrManualOnly(text),
-            "leftover Packages/Release on push/PR/tag in " + file);
+            isScheduleOrManualOnly(text), "leftover Packages/Release on push/PR/tag in " + file);
       }
     }
   }

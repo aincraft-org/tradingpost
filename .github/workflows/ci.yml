@@ -15,5 +15,6 @@ jobs:
   paper:
     uses: aincraft-org/ci-template/.github/workflows/paper.yml@main
     with:
+      gradle-tasks: test assemble
       release-files: |
         paper/build/libs/*.jar
