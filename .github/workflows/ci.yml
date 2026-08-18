@@ -1,47 +1,19 @@
 name: CI
 
 on:
+  pull_request:
+    branches: [master, main]
   push:
     branches: [master, main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
-  contents: read
-  packages: read
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  GRADLE_OPTS: -Dorg.gradle.daemon=false
+  contents: write
+  packages: write
 
 jobs:
-  build:
-    name: Test + jar
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
-
-      - name: Grant execute permission for Gradle
-        run: chmod +x gradlew
-
-      - name: Test and assemble jar
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew :api:test :paper:test :paper:build --console=plain
+  paper:
+    uses: aincraft-org/ci-template/.github/workflows/paper.yml@main
+    with:
+      release-files: |
+        paper/build/libs/*.jar

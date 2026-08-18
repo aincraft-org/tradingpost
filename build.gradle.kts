@@ -18,7 +18,8 @@ plugins {
 }
 
 group = "dev.mintychochip"
-version = providers.gradleProperty("tradingpost.version")
+version = providers.gradleProperty("releaseVersion")
+    .orElse(providers.gradleProperty("tradingpost.version"))
     .orElse(providers.environmentVariable("TRADINGPOST_VERSION"))
     .getOrElse("1.0.0-SNAPSHOT")
 
