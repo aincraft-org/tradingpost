@@ -6,6 +6,7 @@ import dev.mintychochip.tradingpost.command.TradingPostCommands;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MigrationRunner;
+import dev.mintychochip.tradingpost.db.SqlDialect;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
 import dev.mintychochip.tradingpost.lifecycle.PluginState;
 import dev.mintychochip.tradingpost.mailbox.MailboxService;
@@ -140,24 +141,25 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
   private void initializeInterface() {
     settlementService = new SettlementService(database, configuration, mint, executor);
     orderService = new OrderService(this, database, configuration, settlementService, executor);
-    mailboxService = new MailboxService(this, database, configuration.schema(), executor);
-    registry = new TradingPostRegistry(database, configuration.schema(), executor, this);
+    var dialect = SqlDialect.from(configuration);
+    mailboxService = new MailboxService(this, database, dialect, executor);
+    registry = new TradingPostRegistry(database, dialect, executor, this);
     SettlementRecoveryWorker recovery =
         new SettlementRecoveryWorker(
             database,
-            configuration.schema(),
+            dialect,
             getServer().getName() + "-" + java.util.UUID.randomUUID(),
             settlementService,
             executor);
     ExpiryWorker expiry =
         new ExpiryWorker(
             database,
-            configuration.schema(),
+            dialect,
             settlementService,
             executor,
             configuration.maxSellOrders() + configuration.maxBuyOrders());
     ReconciliationWorker reconciliation =
-        new ReconciliationWorker(database, configuration.schema(), mint, executor);
+        new ReconciliationWorker(database, dialect, mint, executor);
     menu =
         new TradingPostMenu(this, database, configuration, orderService, mailboxService, executor);
     registry

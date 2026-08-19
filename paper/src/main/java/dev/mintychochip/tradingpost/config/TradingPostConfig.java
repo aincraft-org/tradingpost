@@ -10,6 +10,7 @@ import java.util.Objects;
 import org.bukkit.configuration.file.FileConfiguration;
 
 public record TradingPostConfig(
+    DatabaseEngine engine,
     String jdbcUrl,
     String username,
     String password,
@@ -33,6 +34,7 @@ public record TradingPostConfig(
     Duration shutdownGrace) {
 
   public static TradingPostConfig load(FileConfiguration config) {
+    DatabaseEngine engine = DatabaseEngine.parse(required(config, "database.engine"));
     String jdbcUrl = required(config, "database.jdbc-url");
     String username = required(config, "database.username");
     String password = config.getString("database.password", "");
@@ -63,6 +65,7 @@ public record TradingPostConfig(
     }
 
     return new TradingPostConfig(
+        engine,
         jdbcUrl,
         username,
         password,

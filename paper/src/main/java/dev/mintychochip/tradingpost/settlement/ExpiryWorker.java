@@ -4,6 +4,7 @@ import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MailboxRepository;
 import dev.mintychochip.tradingpost.db.OrderRepository;
 import dev.mintychochip.tradingpost.db.SettlementRepository;
+import dev.mintychochip.tradingpost.db.SqlDialect;
 import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.domain.SettlementKind;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
@@ -26,14 +27,14 @@ public final class ExpiryWorker {
 
   public ExpiryWorker(
       Database database,
-      String schema,
+      SqlDialect sql,
       SettlementService settlementService,
       AsyncExecutor executor,
       int batchSize) {
     this.database = Objects.requireNonNull(database, "database");
-    this.orders = new OrderRepository(schema);
-    this.settlements = new SettlementRepository(schema);
-    this.mailbox = new MailboxRepository(schema);
+    this.orders = new OrderRepository(sql);
+    this.settlements = new SettlementRepository(sql);
+    this.mailbox = new MailboxRepository(sql);
     this.settlementService = Objects.requireNonNull(settlementService, "settlementService");
     this.executor = Objects.requireNonNull(executor, "executor");
     if (batchSize < 1) throw new IllegalArgumentException("batchSize must be positive");

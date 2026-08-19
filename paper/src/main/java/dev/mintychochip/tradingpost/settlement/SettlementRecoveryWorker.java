@@ -2,6 +2,7 @@ package dev.mintychochip.tradingpost.settlement;
 
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.SettlementRepository;
+import dev.mintychochip.tradingpost.db.SqlDialect;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
 import java.time.Instant;
 import java.util.Objects;
@@ -18,12 +19,12 @@ public final class SettlementRecoveryWorker {
 
   public SettlementRecoveryWorker(
       Database database,
-      String schema,
+      SqlDialect sql,
       String nodeId,
       SettlementService service,
       AsyncExecutor executor) {
     this.database = Objects.requireNonNull(database, "database");
-    this.settlements = new SettlementRepository(schema);
+    this.settlements = new SettlementRepository(sql);
     this.nodeId = Objects.requireNonNull(nodeId, "nodeId");
     this.service = Objects.requireNonNull(service, "service");
     this.executor = Objects.requireNonNull(executor, "executor");

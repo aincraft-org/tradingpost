@@ -1,26 +1,35 @@
 package dev.mintychochip.tradingpost.db;
 
+import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.UUID;
 
 public final class ReviewRepository {
-  private final String schema;
+  private final SqlDialect sql;
 
-  public ReviewRepository(String schema) {
-    this.schema = schema;
+  public ReviewRepository(SqlDialect sql) {
+    this.sql = Objects.requireNonNull(sql, "sql");
+  }
+
+  public ReviewRepository(TradingPostConfig config) {
+    this(SqlDialect.from(config));
   }
 
   public void insert(Connection connection, UUID id, UUID player, String fingerprint, String detail)
       throws SQLException {
-    String sql =
+    String statementSql =
         "INSERT INTO "
-            + schema
-            + ".review_queue(id,player,fingerprint,detail) VALUES(?,?,?,?::jsonb)";
-    try (PreparedStatement statement = connection.prepareStatement(sql)) {
-      statement.setObject(1, id);
-      statement.setObject(2, player);
+            + sql.table("review_queue")
+            + "(id,player,fingerprint,detail) VALUES(?,?,"
+            + "?,"
+            + sql.jsonPlaceholder()
+            + ")";
+    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+      sql.setUuid(statement, 1, id);
+      sql.setUuid(statement, 2, player);
       statement.setString(3, fingerprint);
       statement.setString(4, detail);
       statement.executeUpdate();

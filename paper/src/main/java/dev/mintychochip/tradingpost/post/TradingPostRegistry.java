@@ -2,6 +2,7 @@ package dev.mintychochip.tradingpost.post;
 
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MarketRepository;
+import dev.mintychochip.tradingpost.db.SqlDialect;
 import dev.mintychochip.tradingpost.domain.Market;
 import dev.mintychochip.tradingpost.domain.TradingPostBlock;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
@@ -25,9 +26,9 @@ public final class TradingPostRegistry {
   private final Map<UUID, TradingPostBlock> posts = new ConcurrentHashMap<>();
 
   public TradingPostRegistry(
-      Database database, String schema, AsyncExecutor executor, JavaPlugin plugin) {
+      Database database, SqlDialect sql, AsyncExecutor executor, JavaPlugin plugin) {
     this.database = Objects.requireNonNull(database, "database");
-    this.markets = new MarketRepository(schema);
+    this.markets = new MarketRepository(sql);
     this.executor = Objects.requireNonNull(executor, "executor");
     this.plugin = Objects.requireNonNull(plugin, "plugin");
   }

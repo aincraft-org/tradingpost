@@ -7,6 +7,7 @@ import dev.mintychochip.mint.api.id.ClientId;
 import dev.mintychochip.mint.api.id.CurrencyId;
 import dev.mintychochip.mint.api.id.NamespaceId;
 import dev.mintychochip.mint.api.ledger.Posting;
+import dev.mintychochip.tradingpost.config.DatabaseEngine;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 class SettlementTransferBuilderTest {
   private static final TradingPostConfig CONFIG =
       new TradingPostConfig(
+          DatabaseEngine.POSTGRESQL,
           "jdbc",
           "user",
           "password",

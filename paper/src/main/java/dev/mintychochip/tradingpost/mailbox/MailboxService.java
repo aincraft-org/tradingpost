@@ -2,6 +2,7 @@ package dev.mintychochip.tradingpost.mailbox;
 
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MailboxRepository;
+import dev.mintychochip.tradingpost.db.SqlDialect;
 import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.items.ItemCodec;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
@@ -22,10 +23,10 @@ public final class MailboxService {
   private final AsyncExecutor executor;
 
   public MailboxService(
-      JavaPlugin plugin, Database database, String schema, AsyncExecutor executor) {
+      JavaPlugin plugin, Database database, SqlDialect sql, AsyncExecutor executor) {
     this.plugin = Objects.requireNonNull(plugin, "plugin");
     this.database = Objects.requireNonNull(database, "database");
-    this.mailbox = new MailboxRepository(schema);
+    this.mailbox = new MailboxRepository(sql);
     this.executor = Objects.requireNonNull(executor, "executor");
   }
 

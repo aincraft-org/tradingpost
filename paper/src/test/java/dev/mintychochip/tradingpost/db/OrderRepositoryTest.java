@@ -9,6 +9,7 @@ import dev.mintychochip.mint.api.id.AccountId;
 import dev.mintychochip.mint.api.id.ClientId;
 import dev.mintychochip.mint.api.id.CurrencyId;
 import dev.mintychochip.mint.api.id.NamespaceId;
+import dev.mintychochip.tradingpost.config.DatabaseEngine;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.domain.BuyOrder;
 import dev.mintychochip.tradingpost.domain.Market;
@@ -36,6 +37,7 @@ class OrderRepositoryTest {
   void reserveMatchDecrementsEscrowAndUsesValidDeterministicKey() {
     TradingPostConfig config =
         new TradingPostConfig(
+            DatabaseEngine.POSTGRESQL,
             POSTGRES.getJdbcUrl(),
             POSTGRES.getUsername(),
             POSTGRES.getPassword(),
@@ -59,8 +61,8 @@ class OrderRepositoryTest {
             Duration.ofSeconds(1));
     try (Database database = new Database(config)) {
       MigrationRunner.migrate(database, config);
-      OrderRepository orders = new OrderRepository(config.schema());
-      MarketRepository markets = new MarketRepository(config.schema());
+      OrderRepository orders = new OrderRepository(config);
+      MarketRepository markets = new MarketRepository(config);
       UUID seller = UUID.randomUUID();
       UUID buyer = UUID.randomUUID();
       UUID sellId = UUID.randomUUID();

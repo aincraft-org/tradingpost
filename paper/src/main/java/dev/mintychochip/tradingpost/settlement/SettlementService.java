@@ -8,17 +8,17 @@ import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MailboxRepository;
 import dev.mintychochip.tradingpost.db.OrderRepository;
-import dev.mintychochip.tradingpost.db.SettlementRepository;
-import dev.mintychochip.tradingpost.db.SellNowOperationRepository;
 import dev.mintychochip.tradingpost.db.ReviewRepository;
+import dev.mintychochip.tradingpost.db.SellNowOperationRepository;
+import dev.mintychochip.tradingpost.db.SettlementRepository;
 import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.domain.OrderStatus;
-import dev.mintychochip.tradingpost.domain.Settlement;
-import dev.mintychochip.tradingpost.domain.SettlementKind;
-import dev.mintychochip.tradingpost.domain.SettlementState;
 import dev.mintychochip.tradingpost.domain.SellNowOperation;
 import dev.mintychochip.tradingpost.domain.SellNowOperationState;
 import dev.mintychochip.tradingpost.domain.SellOrder;
+import dev.mintychochip.tradingpost.domain.Settlement;
+import dev.mintychochip.tradingpost.domain.SettlementKind;
+import dev.mintychochip.tradingpost.domain.SettlementState;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
 import dev.mintychochip.tradingpost.mint.MintOperations;
 import java.time.Instant;
@@ -43,14 +43,14 @@ public final class SettlementService {
   public SettlementService(
       Database database, TradingPostConfig config, MintOperations mint, AsyncExecutor executor) {
     this.database = Objects.requireNonNull(database, "database");
-    this.settlements = new SettlementRepository(config.schema());
-    this.orders = new OrderRepository(config.schema());
-    this.mailbox = new MailboxRepository(config.schema());
+    this.settlements = new SettlementRepository(config);
+    this.orders = new OrderRepository(config);
+    this.mailbox = new MailboxRepository(config);
     this.mint = Objects.requireNonNull(mint, "mint");
     this.executor = Objects.requireNonNull(executor, "executor");
     this.transfers = new SettlementTransferBuilder(config);
-    this.operations = new SellNowOperationRepository(config.schema());
-    this.reviews = new ReviewRepository(config.schema());
+    this.operations = new SellNowOperationRepository(config);
+    this.reviews = new ReviewRepository(config);
   }
 
   public CompletionStage<Void> submitReserved(UUID settlementId) {
@@ -238,7 +238,9 @@ public final class SettlementService {
 
   private boolean operationTerminal(UUID operationId) {
     return executor
-        .submit(() -> database.transaction(connection -> operations.find(connection, operationId, false)))
+        .submit(
+            () ->
+                database.transaction(connection -> operations.find(connection, operationId, false)))
         .toCompletableFuture()
         .join()
         .map(SellNowOperation::state)
@@ -364,8 +366,7 @@ public final class SettlementService {
     }
     orders.cancelSell(connection, sell.id(), sell.seller());
     SellNowOperationState expected = operation.state();
-    operations.advance(
-        connection, operationId, expected, SellNowOperationState.COMPLETED, null);
+    operations.advance(connection, operationId, expected, SellNowOperationState.COMPLETED, null);
   }
 
   private boolean hasCommittedOrDeliveredFill(java.sql.Connection connection, UUID operationId)

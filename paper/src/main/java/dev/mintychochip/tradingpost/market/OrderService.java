@@ -9,10 +9,10 @@ import dev.mintychochip.tradingpost.db.SettlementRepository;
 import dev.mintychochip.tradingpost.domain.BuyOrder;
 import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.domain.OrderStatus;
-import dev.mintychochip.tradingpost.domain.SellOrder;
-import dev.mintychochip.tradingpost.domain.SellOrderMode;
 import dev.mintychochip.tradingpost.domain.SellNowOperation;
 import dev.mintychochip.tradingpost.domain.SellNowOperationState;
+import dev.mintychochip.tradingpost.domain.SellOrder;
+import dev.mintychochip.tradingpost.domain.SellOrderMode;
 import dev.mintychochip.tradingpost.domain.SettlementKind;
 import dev.mintychochip.tradingpost.items.ItemCodec;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
@@ -50,9 +50,9 @@ public final class OrderService {
       AsyncExecutor executor) {
     this.plugin = Objects.requireNonNull(plugin, "plugin");
     this.database = Objects.requireNonNull(database, "database");
-    this.orders = new OrderRepository(config.schema());
-    this.settlements = new SettlementRepository(config.schema());
-    this.mailbox = new MailboxRepository(config.schema());
+    this.orders = new OrderRepository(config);
+    this.settlements = new SettlementRepository(config);
+    this.mailbox = new MailboxRepository(config);
     this.settlementService = Objects.requireNonNull(settlementService, "settlementService");
     this.config = Objects.requireNonNull(config, "config");
     this.executor = Objects.requireNonNull(executor, "executor");
@@ -116,7 +116,7 @@ public final class OrderService {
                       UUID operationId = null;
                       if (mode == SellOrderMode.INSTANT) {
                         operationId = UUID.randomUUID();
-                        new SellNowOperationRepository(config.schema())
+                        new SellNowOperationRepository(config)
                             .insert(
                                 connection,
                                 new SellNowOperation(

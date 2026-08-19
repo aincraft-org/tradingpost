@@ -18,12 +18,14 @@ import dev.mintychochip.mint.api.result.OperationOutcome;
 import dev.mintychochip.mint.api.result.Rejected;
 import dev.mintychochip.mint.api.result.Rejection;
 import dev.mintychochip.mint.api.result.RejectionCode;
+import dev.mintychochip.tradingpost.config.DatabaseEngine;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MarketRepository;
 import dev.mintychochip.tradingpost.db.MigrationRunner;
 import dev.mintychochip.tradingpost.db.OrderRepository;
 import dev.mintychochip.tradingpost.db.SettlementRepository;
+import dev.mintychochip.tradingpost.db.SqlDialect;
 import dev.mintychochip.tradingpost.domain.BuyOrder;
 import dev.mintychochip.tradingpost.domain.Market;
 import dev.mintychochip.tradingpost.domain.OrderStatus;
@@ -71,6 +73,7 @@ class SettlementServiceIntegrationTest {
   void setUp() {
     config =
         new TradingPostConfig(
+            DatabaseEngine.POSTGRESQL,
             POSTGRES.getJdbcUrl(),
             POSTGRES.getUsername(),
             POSTGRES.getPassword(),
@@ -97,9 +100,9 @@ class SettlementServiceIntegrationTest {
     executor = new AsyncExecutor(8);
     mint = new FakeMint(config);
     settlements = new SettlementService(database, config, mint, executor);
-    orders = new OrderRepository(config.schema());
-    settlementRows = new SettlementRepository(config.schema());
-    markets = new MarketRepository(config.schema());
+    orders = new OrderRepository(config);
+    settlementRows = new SettlementRepository(config);
+    markets = new MarketRepository(config);
     database.transaction(
         connection -> {
           if (markets.find(connection, "spawn").isEmpty()) {
@@ -513,7 +516,8 @@ class SettlementServiceIntegrationTest {
         });
 
     SettlementRecoveryWorker recovery =
-        new SettlementRecoveryWorker(database, config.schema(), "test-node", settlements, executor);
+        new SettlementRecoveryWorker(
+            database, SqlDialect.from(config), "test-node", settlements, executor);
     int processed = recovery.runOnce().toCompletableFuture().get(10, TimeUnit.SECONDS);
     assertEquals(1, processed);
 

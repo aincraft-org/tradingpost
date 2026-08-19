@@ -74,8 +74,8 @@ public final class TradingPostUi implements Listener {
     this.orderService = Objects.requireNonNull(orderService, "orderService");
     this.mailboxService = Objects.requireNonNull(mailboxService, "mailboxService");
     this.executor = Objects.requireNonNull(executor, "executor");
-    this.orders = new OrderRepository(config.schema());
-    this.mailbox = new MailboxRepository(config.schema());
+    this.orders = new OrderRepository(config);
+    this.mailbox = new MailboxRepository(config);
   }
 
   /**

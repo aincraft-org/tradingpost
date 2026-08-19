@@ -3,6 +3,7 @@ package dev.mintychochip.tradingpost.settlement;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.OrderRepository;
 import dev.mintychochip.tradingpost.db.ReviewRepository;
+import dev.mintychochip.tradingpost.db.SqlDialect;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
 import dev.mintychochip.tradingpost.mint.MintGateway;
 import java.math.BigDecimal;
@@ -18,10 +19,10 @@ public final class ReconciliationWorker {
   private final AsyncExecutor executor;
 
   public ReconciliationWorker(
-      Database database, String schema, MintGateway mint, AsyncExecutor executor) {
+      Database database, SqlDialect sql, MintGateway mint, AsyncExecutor executor) {
     this.database = Objects.requireNonNull(database, "database");
-    this.orders = new OrderRepository(schema);
-    this.reviews = new ReviewRepository(schema);
+    this.orders = new OrderRepository(sql);
+    this.reviews = new ReviewRepository(sql);
     this.mint = Objects.requireNonNull(mint, "mint");
     this.executor = Objects.requireNonNull(executor, "executor");
   }

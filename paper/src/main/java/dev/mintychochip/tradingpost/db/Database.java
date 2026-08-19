@@ -2,6 +2,7 @@ package dev.mintychochip.tradingpost.db;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import dev.mintychochip.tradingpost.config.DatabaseEngine;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -9,15 +10,27 @@ import java.util.Objects;
 
 public final class Database implements AutoCloseable {
   private final HikariDataSource dataSource;
+  private final SqlDialect dialect;
 
   public Database(TradingPostConfig config) {
+    Objects.requireNonNull(config, "config");
+    this.dialect = SqlDialect.from(config);
     HikariConfig hikari = new HikariConfig();
     hikari.setJdbcUrl(config.jdbcUrl());
     hikari.setUsername(config.username());
     hikari.setPassword(config.password());
-    hikari.setMaximumPoolSize(config.maximumPoolSize());
     hikari.setPoolName("TradingPost");
+    if (config.engine() == DatabaseEngine.SQLITE) {
+      hikari.setMaximumPoolSize(1);
+      hikari.setConnectionInitSql("PRAGMA foreign_keys = ON");
+    } else {
+      hikari.setMaximumPoolSize(config.maximumPoolSize());
+    }
     this.dataSource = new HikariDataSource(hikari);
+  }
+
+  public SqlDialect dialect() {
+    return dialect;
   }
 
   public Connection connection() throws SQLException {

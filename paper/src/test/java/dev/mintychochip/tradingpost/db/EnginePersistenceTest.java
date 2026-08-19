@@ -1,0 +1,176 @@
+package dev.mintychochip.tradingpost.db;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.mintychochip.tradingpost.config.DatabaseEngine;
+import dev.mintychochip.tradingpost.config.TestConfigs;
+import dev.mintychochip.tradingpost.config.TradingPostConfig;
+import dev.mintychochip.tradingpost.domain.BuyOrder;
+import dev.mintychochip.tradingpost.domain.MailboxItem;
+import dev.mintychochip.tradingpost.domain.Market;
+import dev.mintychochip.tradingpost.domain.OrderStatus;
+import dev.mintychochip.tradingpost.domain.SellOrder;
+import dev.mintychochip.tradingpost.domain.SellOrderMode;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.testcontainers.containers.MariaDBContainer;
+import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
+
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class EnginePersistenceTest {
+  private PostgreSQLContainer<?> postgres;
+  private MySQLContainer<?> mysql;
+  private MariaDBContainer<?> mariadb;
+
+  @BeforeAll
+  void startContainers() {
+    postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    mysql = new MySQLContainer<>("mysql:8.4");
+    mariadb = new MariaDBContainer<>("mariadb:11");
+    postgres.start();
+    mysql.start();
+    mariadb.start();
+  }
+
+  @AfterAll
+  void stopContainers() {
+    if (postgres != null) {
+      postgres.stop();
+    }
+    if (mysql != null) {
+      mysql.stop();
+    }
+    if (mariadb != null) {
+      mariadb.stop();
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(DatabaseEngine.class)
+  void migrateThenRoundTripMarketOrdersAndMailbox(DatabaseEngine engine) throws Exception {
+    Path sqliteFile =
+        engine == DatabaseEngine.SQLITE ? Files.createTempFile("tradingpost", ".db") : null;
+    TradingPostConfig config = configFor(engine, sqliteFile);
+    try (Database database = new Database(config)) {
+      MigrationRunner.migrate(database, config);
+      MarketRepository markets = new MarketRepository(config);
+      OrderRepository orders = new OrderRepository(config);
+      MailboxRepository mailbox = new MailboxRepository(config);
+
+      UUID seller = UUID.randomUUID();
+      UUID buyer = UUID.randomUUID();
+      UUID sellId = UUID.randomUUID();
+      UUID buyId = UUID.randomUUID();
+      UUID mailId = UUID.randomUUID();
+      Instant now = Instant.parse("2026-08-19T12:00:00Z");
+      byte[] blob = new byte[] {1, 2, 3, 9};
+
+      SellOrder sell =
+          new SellOrder(
+              sellId,
+              "spawn",
+              seller,
+              "minecraft:diamond",
+              blob,
+              "fp-sell",
+              4,
+              4,
+              new BigDecimal("8.50"),
+              SellOrderMode.NORMAL,
+              OrderStatus.ACTIVE,
+              now.plusSeconds(3600),
+              now);
+      BuyOrder buy =
+          new BuyOrder(
+              buyId,
+              "spawn",
+              buyer,
+              "minecraft:diamond",
+              null,
+              2,
+              2,
+              new BigDecimal("9.00"),
+              new BigDecimal("18.00"),
+              OrderStatus.OPEN,
+              now.plusSeconds(3600),
+              now);
+      MailboxItem mail =
+          new MailboxItem(
+              mailId, "spawn", seller, blob, "fp-mail", "remainder", "UNCLAIMED", null, now);
+
+      database.transaction(
+          connection -> {
+            markets.insert(connection, new Market("spawn", "Spawn", 100, 500));
+            orders.insertSell(connection, sell);
+            orders.insertBuy(connection, buy);
+            mailbox.insert(connection, mail);
+            return null;
+          });
+
+      database.transaction(
+          connection -> {
+            Market market = markets.find(connection, "spawn").orElseThrow();
+            assertEquals("spawn", market.name());
+            assertEquals(100, market.feeBps());
+            SellOrder loadedSell = orders.findSell(connection, sellId, false).orElseThrow();
+            assertEquals(sellId, loadedSell.id());
+            assertEquals("minecraft:diamond", loadedSell.material());
+            assertEquals(4, loadedSell.quantityRemaining());
+            assertArrayEquals(blob, loadedSell.itemBlob());
+            BuyOrder loadedBuy = orders.findBuy(connection, buyId, false).orElseThrow();
+            assertEquals(buyId, loadedBuy.id());
+            assertEquals(buyer, loadedBuy.buyer());
+            assertEquals(0, new BigDecimal("18.00").compareTo(loadedBuy.escrowReserved()));
+            MailboxItem loadedMail = mailbox.find(connection, mailId, false).orElseThrow();
+            assertEquals(mailId, loadedMail.id());
+            assertEquals("remainder", loadedMail.reason());
+            assertArrayEquals(blob, loadedMail.itemBlob());
+            assertTrue(MigrationRunner.tableExists(connection, SqlDialect.from(config), "fills"));
+            return null;
+          });
+    } finally {
+      if (sqliteFile != null) {
+        Files.deleteIfExists(sqliteFile);
+      }
+    }
+  }
+
+  private TradingPostConfig configFor(DatabaseEngine engine, Path sqliteFile) {
+    return switch (engine) {
+      case POSTGRESQL ->
+          TestConfigs.jdbc(
+              engine,
+              postgres.getJdbcUrl(),
+              postgres.getUsername(),
+              postgres.getPassword(),
+              "engine_pg");
+      case MYSQL ->
+          TestConfigs.jdbc(
+              engine,
+              mysql.getJdbcUrl(),
+              mysql.getUsername(),
+              mysql.getPassword(),
+              mysql.getDatabaseName());
+      case MARIADB ->
+          TestConfigs.jdbc(
+              engine,
+              mariadb.getJdbcUrl(),
+              mariadb.getUsername(),
+              mariadb.getPassword(),
+              mariadb.getDatabaseName());
+      case SQLITE ->
+          TestConfigs.jdbc(engine, "jdbc:sqlite:" + sqliteFile.toAbsolutePath(), "", "", "main");
+    };
+  }
+}

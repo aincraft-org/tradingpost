@@ -8,6 +8,7 @@ import dev.mintychochip.mint.api.id.AccountId;
 import dev.mintychochip.mint.api.id.ClientId;
 import dev.mintychochip.mint.api.id.CurrencyId;
 import dev.mintychochip.mint.api.id.NamespaceId;
+import dev.mintychochip.tradingpost.config.DatabaseEngine;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.domain.Market;
 import dev.mintychochip.tradingpost.domain.TradingPostBlock;
@@ -28,6 +29,7 @@ class PostgresRepositoryTest {
   void migrationCreatesOrderAndSettlementConstraints() throws Exception {
     TradingPostConfig config =
         new TradingPostConfig(
+            DatabaseEngine.POSTGRESQL,
             POSTGRES.getJdbcUrl(),
             POSTGRES.getUsername(),
             POSTGRES.getPassword(),
@@ -97,7 +99,7 @@ class PostgresRepositoryTest {
             }
             return null;
           });
-      MarketRepository markets = new MarketRepository(config.schema());
+      MarketRepository markets = new MarketRepository(config);
       UUID firstVillager = UUID.randomUUID();
       database.transaction(
           connection -> {
