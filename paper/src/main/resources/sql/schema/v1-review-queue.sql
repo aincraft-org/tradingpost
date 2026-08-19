@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS {schema}.review_queue (id {uuid} PRIMARY KEY, player {uuid}, fingerprint {keyed}, detail {json} NOT NULL, resolved_by {uuid}, resolved_at {ts}, created_at {ts} NOT NULL{defaultNow})

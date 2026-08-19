@@ -27,11 +27,8 @@ public final class SellNowOperationRepository {
   }
 
   public void insert(Connection connection, SellNowOperation operation) throws SQLException {
-    String statementSql =
-        "INSERT INTO "
-            + sql.table("sell_now_operations")
-            + "(operation_id,sell_order_id,market_name,seller,source_item_blob,source_fingerprint,original_quantity,state,failure_detail,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("sell-now/insert.sql"))) {
       sql.setUuid(statement, 1, operation.operationId());
       sql.setUuid(statement, 2, operation.sellOrderId());
       statement.setString(3, operation.marketName());
@@ -49,14 +46,15 @@ public final class SellNowOperationRepository {
 
   public Optional<SellNowOperation> find(Connection connection, UUID operationId, boolean lock)
       throws SQLException {
-    return find(
-        selectSql() + " WHERE operation_id=?" + sql.forUpdate(lock), connection, operationId);
+    return find(statement("sell-now/find.sql") + sql.forUpdate(lock), connection, operationId);
   }
 
   public Optional<SellNowOperation> findBySellOrder(
       Connection connection, UUID sellOrderId, boolean lock) throws SQLException {
     return find(
-        selectSql() + " WHERE sell_order_id=?" + sql.forUpdate(lock), connection, sellOrderId);
+        statement("sell-now/find-by-sell-order.sql") + sql.forUpdate(lock),
+        connection,
+        sellOrderId);
   }
 
   public void advance(
@@ -66,12 +64,7 @@ public final class SellNowOperationRepository {
       SellNowOperationState to,
       String detail)
       throws SQLException {
-    String statementSql =
-        "UPDATE "
-            + sql.table("sell_now_operations")
-            + " SET state=?,failure_detail=?,updated_at="
-            + sql.now()
-            + " WHERE operation_id=? AND state=?";
+    String statementSql = statement("sell-now/advance.sql").replace("{now}", sql.now());
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       statement.setString(1, to.name());
       statement.setString(2, detail);
@@ -94,9 +87,8 @@ public final class SellNowOperationRepository {
     }
   }
 
-  private String selectSql() {
-    return "SELECT operation_id,sell_order_id,market_name,seller,source_item_blob,source_fingerprint,original_quantity,state,failure_detail,created_at,updated_at FROM "
-        + sql.table("sell_now_operations");
+  private String statement(String name) {
+    return SqlStatements.load(name, sql);
   }
 
   private SellNowOperation read(ResultSet rows) throws SQLException {

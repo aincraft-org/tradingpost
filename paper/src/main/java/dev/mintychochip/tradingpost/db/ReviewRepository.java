@@ -21,12 +21,7 @@ public final class ReviewRepository {
   public void insert(Connection connection, UUID id, UUID player, String fingerprint, String detail)
       throws SQLException {
     String statementSql =
-        "INSERT INTO "
-            + sql.table("review_queue")
-            + "(id,player,fingerprint,detail) VALUES(?,?,"
-            + "?,"
-            + sql.jsonPlaceholder()
-            + ")";
+        SqlStatements.load("review/insert.sql", sql).replace("{json}", sql.jsonPlaceholder());
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       sql.setUuid(statement, 1, id);
       sql.setUuid(statement, 2, player);

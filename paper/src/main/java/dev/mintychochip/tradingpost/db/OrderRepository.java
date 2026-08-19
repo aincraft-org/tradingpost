@@ -33,13 +33,8 @@ public final class OrderRepository {
   }
 
   public void insertSell(Connection connection, SellOrder order) throws SQLException {
-    String statementSql =
-        "INSERT INTO "
-            + sql.table("sell_orders")
-            + " "
-            + "(id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at) "
-            + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/insert-sell.sql"))) {
       sql.setUuid(statement, 1, order.id());
       statement.setString(2, order.marketName());
       sql.setUuid(statement, 3, order.seller());
@@ -58,13 +53,8 @@ public final class OrderRepository {
   }
 
   public void insertBuy(Connection connection, BuyOrder order) throws SQLException {
-    String statementSql =
-        "INSERT INTO "
-            + sql.table("buy_orders")
-            + " "
-            + "(id,market_name,buyer,material,template_fingerprint,quantity,quantity_remaining,unit_price,escrow_reserved,status,expires_at,created_at) "
-            + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/insert-buy.sql"))) {
       sql.setUuid(statement, 1, order.id());
       statement.setString(2, order.marketName());
       sql.setUuid(statement, 3, order.buyer());
@@ -83,12 +73,7 @@ public final class OrderRepository {
 
   public Optional<SellOrder> findSell(Connection connection, UUID id, boolean lock)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("sell_orders")
-            + " WHERE id=?"
-            + sql.forUpdate(lock);
+    String statementSql = statement("orders/find-sell.sql") + sql.forUpdate(lock);
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       sql.setUuid(statement, 1, id);
       try (ResultSet rows = statement.executeQuery()) {
@@ -99,12 +84,7 @@ public final class OrderRepository {
 
   public Optional<BuyOrder> findBuy(Connection connection, UUID id, boolean lock)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,buyer,material,template_fingerprint,quantity,quantity_remaining,unit_price,escrow_reserved,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("buy_orders")
-            + " WHERE id=?"
-            + sql.forUpdate(lock);
+    String statementSql = statement("orders/find-buy.sql") + sql.forUpdate(lock);
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       sql.setUuid(statement, 1, id);
       try (ResultSet rows = statement.executeQuery()) {
@@ -115,13 +95,8 @@ public final class OrderRepository {
 
   public List<SellOrder> bestAsks(Connection connection, String market, String material, int limit)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("sell_orders")
-            + " WHERE market_name=? AND material=? AND status='ACTIVE' AND quantity_remaining>0 "
-            + "ORDER BY unit_price ASC, created_at ASC, id ASC LIMIT ?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/best-asks.sql"))) {
       statement.setString(1, market);
       statement.setString(2, material);
       statement.setInt(3, limit);
@@ -135,10 +110,7 @@ public final class OrderRepository {
 
   public BigDecimal escrowObligation(Connection connection) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "SELECT COALESCE(SUM(escrow_reserved), 0) FROM "
-                + sql.table("buy_orders")
-                + " WHERE status IN ('CREATING','OPEN')")) {
+        connection.prepareStatement(statement("orders/escrow-obligation.sql"))) {
       try (ResultSet rows = statement.executeQuery()) {
         rows.next();
         return rows.getBigDecimal(1);
@@ -165,13 +137,8 @@ public final class OrderRepository {
   public List<SellOrder> listPlayerSells(
       Connection connection, String market, UUID player, int offset, int limit)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("sell_orders")
-            + " WHERE market_name=? AND seller=? AND status IN ('ACTIVE','CREATING') "
-            + "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/list-player-sells.sql"))) {
       statement.setString(1, market);
       sql.setUuid(statement, 2, player);
       statement.setInt(3, limit);
@@ -187,13 +154,8 @@ public final class OrderRepository {
   public List<BuyOrder> listPlayerBuys(
       Connection connection, String market, UUID player, int offset, int limit)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,buyer,material,template_fingerprint,quantity,quantity_remaining,unit_price,escrow_reserved,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("buy_orders")
-            + " WHERE market_name=? AND buyer=? AND status IN ('OPEN','CREATING') "
-            + "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/list-player-buys.sql"))) {
       statement.setString(1, market);
       sql.setUuid(statement, 2, player);
       statement.setInt(3, limit);
@@ -208,13 +170,8 @@ public final class OrderRepository {
 
   public List<BuyOrder> browseBids(Connection connection, String market, int offset, int limit)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,buyer,material,template_fingerprint,quantity,quantity_remaining,unit_price,escrow_reserved,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("buy_orders")
-            + " WHERE market_name=? AND status='OPEN' AND quantity_remaining>0 "
-            + "ORDER BY unit_price DESC, created_at ASC, id ASC LIMIT ? OFFSET ?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/browse-bids.sql"))) {
       statement.setString(1, market);
       statement.setInt(2, limit);
       statement.setInt(3, offset);
@@ -229,8 +186,7 @@ public final class OrderRepository {
   private void transition(Connection connection, String table, UUID id, String from, String to)
       throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "UPDATE " + sql.table(table) + " SET status=? WHERE id=? AND status=?")) {
+        connection.prepareStatement(statement("orders/transition.sql").replace("{table}", table))) {
       statement.setString(1, to);
       sql.setUuid(statement, 2, id);
       statement.setString(3, from);
@@ -242,10 +198,7 @@ public final class OrderRepository {
 
   public boolean cancelSell(Connection connection, UUID id, UUID owner) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("sell_orders")
-                + " SET status='CANCELED' WHERE id=? AND seller=? AND status='ACTIVE'")) {
+        connection.prepareStatement(statement("orders/cancel-sell.sql"))) {
       sql.setUuid(statement, 1, id);
       sql.setUuid(statement, 2, owner);
       return statement.executeUpdate() == 1;
@@ -254,10 +207,7 @@ public final class OrderRepository {
 
   public boolean cancelBuy(Connection connection, UUID id, UUID owner) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("buy_orders")
-                + " SET status='CANCELED' WHERE id=? AND buyer=? AND status='OPEN'")) {
+        connection.prepareStatement(statement("orders/cancel-buy.sql"))) {
       sql.setUuid(statement, 1, id);
       sql.setUuid(statement, 2, owner);
       return statement.executeUpdate() == 1;
@@ -266,12 +216,8 @@ public final class OrderRepository {
 
   public List<SellOrder> expiredSells(Connection connection, java.time.Instant now, int limit)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("sell_orders")
-            + " WHERE status='ACTIVE' AND mode='NORMAL' AND expires_at<? ORDER BY expires_at ASC LIMIT ?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/expired-sells.sql"))) {
       sql.setInstant(statement, 1, now);
       statement.setInt(2, limit);
       try (ResultSet rows = statement.executeQuery()) {
@@ -284,12 +230,8 @@ public final class OrderRepository {
 
   public List<BuyOrder> expiredBuys(Connection connection, java.time.Instant now, int limit)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,buyer,material,template_fingerprint,quantity,quantity_remaining,unit_price,escrow_reserved,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("buy_orders")
-            + " WHERE status='OPEN' AND expires_at<? ORDER BY expires_at ASC LIMIT ?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/expired-buys.sql"))) {
       sql.setInstant(statement, 1, now);
       statement.setInt(2, limit);
       try (ResultSet rows = statement.executeQuery()) {
@@ -310,13 +252,8 @@ public final class OrderRepository {
 
   public List<BuyOrder> bestBids(Connection connection, String market, String material, int limit)
       throws SQLException {
-    String statementSql =
-        "SELECT id,market_name,buyer,material,template_fingerprint,quantity,quantity_remaining,unit_price,escrow_reserved,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("buy_orders")
-            + " WHERE market_name=? AND material=? AND status='OPEN' AND quantity_remaining>0 "
-            + "ORDER BY unit_price DESC, created_at ASC, id ASC LIMIT ?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/best-bids.sql"))) {
       statement.setString(1, market);
       statement.setString(2, material);
       statement.setInt(3, limit);
@@ -338,12 +275,7 @@ public final class OrderRepository {
       throws SQLException {
     boolean filter = materialFilter != null && !materialFilter.isBlank();
     String statementSql =
-        "SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at "
-            + "FROM "
-            + sql.table("sell_orders")
-            + " WHERE market_name=? AND status='ACTIVE' AND quantity_remaining>0 "
-            + (filter ? "AND material=? " : "")
-            + "ORDER BY unit_price ASC, created_at ASC, id ASC LIMIT ? OFFSET ?";
+        statement(filter ? "orders/browse-asks-by-material.sql" : "orders/browse-asks.sql");
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       int i = 1;
       statement.setString(i++, market);
@@ -368,18 +300,7 @@ public final class OrderRepository {
 
   public Optional<FillContext> findFillContext(Connection connection, UUID fillId, boolean lock)
       throws SQLException {
-    String statementSql =
-        "SELECT f.fill_id,f.market_name,f.sell_order_id,f.buy_order_id,f.quantity,f.unit_price,"
-            + "f.item_blob,f.remaining_item_blob,f.status,f.created_at,s.seller,b.buyer,s.fingerprint,f.operation_id "
-            + "FROM "
-            + sql.table("fills")
-            + " f JOIN "
-            + sql.table("sell_orders")
-            + " s ON s.id=f.sell_order_id "
-            + "JOIN "
-            + sql.table("buy_orders")
-            + " b ON b.id=f.buy_order_id WHERE f.fill_id=?"
-            + sql.forUpdate(lock);
+    String statementSql = statement("orders/find-fill-context.sql") + sql.forUpdate(lock);
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       sql.setUuid(statement, 1, fillId);
       try (ResultSet rows = statement.executeQuery()) {
@@ -409,10 +330,7 @@ public final class OrderRepository {
 
   public void markFillDelivered(Connection connection, UUID fillId) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("fills")
-                + " SET status='DELIVERED' WHERE fill_id=? AND status='MONEY_SETTLED'")) {
+        connection.prepareStatement(statement("orders/mark-fill-delivered.sql"))) {
       sql.setUuid(statement, 1, fillId);
       if (statement.executeUpdate() != 1) {
         throw new IllegalStateException("fill delivery state lost race: " + fillId);
@@ -422,10 +340,7 @@ public final class OrderRepository {
 
   public void markFillMoneySettled(Connection connection, UUID fillId) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("fills")
-                + " SET status='MONEY_SETTLED' WHERE fill_id=? AND status='RESERVED'")) {
+        connection.prepareStatement(statement("orders/mark-fill-money-settled.sql"))) {
       sql.setUuid(statement, 1, fillId);
       if (statement.executeUpdate() != 1) {
         throw new IllegalStateException("fill settlement state lost race: " + fillId);
@@ -469,10 +384,7 @@ public final class OrderRepository {
     // even when remaining is still below the original order quantity.
     String sellStatus = sellRemaining > 0 ? OrderStatus.ACTIVE.name() : OrderStatus.FILLED.name();
     try (PreparedStatement update =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("sell_orders")
-                + " SET quantity_remaining=?,item_blob=?,status=? WHERE id=?")) {
+        connection.prepareStatement(statement("orders/compensate-sell.sql"))) {
       update.setInt(1, sellRemaining);
       update.setBytes(2, restoredSellBlob);
       update.setString(3, sellStatus);
@@ -482,30 +394,21 @@ public final class OrderRepository {
     int buyRemaining = buy.quantityRemaining() + context.fill().quantity();
     String buyStatus = buyRemaining > 0 ? OrderStatus.OPEN.name() : OrderStatus.FILLED.name();
     try (PreparedStatement update =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("buy_orders")
-                + " SET quantity_remaining=?,status=? WHERE id=?")) {
+        connection.prepareStatement(statement("orders/compensate-buy-remaining.sql"))) {
       update.setInt(1, buyRemaining);
       update.setString(2, buyStatus);
       sql.setUuid(update, 3, buy.id());
       update.executeUpdate();
     }
     try (PreparedStatement update =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("buy_orders")
-                + " SET escrow_reserved=escrow_reserved+? WHERE id=?")) {
+        connection.prepareStatement(statement("orders/compensate-buy-escrow.sql"))) {
       update.setBigDecimal(
           1, context.fill().unitPrice().multiply(BigDecimal.valueOf(context.fill().quantity())));
       sql.setUuid(update, 2, buy.id());
       update.executeUpdate();
     }
     try (PreparedStatement update =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("fills")
-                + " SET status='VOIDED' WHERE fill_id=? AND status='RESERVED'")) {
+        connection.prepareStatement(statement("orders/void-fill.sql"))) {
       sql.setUuid(update, 1, fillId);
       if (update.executeUpdate() != 1) {
         throw new IllegalStateException("fill compensation lost race: " + fillId);
@@ -555,11 +458,8 @@ public final class OrderRepository {
     // remaining_item_blob stores the pre-match sell stack for exact compensation restore.
     // The post-match remainder is written only to sell_orders.item_blob.
     byte[] preMatchSellBlob = sell.itemBlob();
-    String fillSql =
-        "INSERT INTO "
-            + sql.table("fills")
-            + "(fill_id,market_name,sell_order_id,buy_order_id,quantity,unit_price,item_blob,remaining_item_blob,status,operation_id) VALUES(?,?,?,?,?,?,?,?,?,?)";
-    try (PreparedStatement statement = connection.prepareStatement(fillSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/insert-fill.sql"))) {
       sql.setUuid(statement, 1, fillId);
       statement.setString(2, sell.marketName());
       sql.setUuid(statement, 3, sell.id());
@@ -616,11 +516,8 @@ public final class OrderRepository {
 
   private void insertSettlement(Connection connection, SettlementDraft settlement)
       throws SQLException {
-    String statementSql =
-        "INSERT INTO "
-            + sql.table("settlements")
-            + "(id,kind,idempotency_key,fill_id,order_id,amount,state,operation_id) VALUES(?,?,?,?,?,?,?,?)";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("orders/insert-settlement.sql"))) {
       sql.setUuid(statement, 1, settlement.id());
       statement.setString(2, settlement.kind().name());
       statement.setString(3, settlement.idempotencyKey());
@@ -643,11 +540,7 @@ public final class OrderRepository {
       throws SQLException {
     boolean sell = table.equals("sell_orders");
     String statementSql =
-        "UPDATE "
-            + sql.table(table)
-            + (sell
-                ? " SET quantity_remaining=?,status=?,item_blob=? WHERE id=?"
-                : " SET quantity_remaining=?,status=? WHERE id=?");
+        statement(sell ? "orders/update-sell-remaining.sql" : "orders/update-buy-remaining.sql");
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       statement.setInt(1, remaining);
       statement.setString(2, status);
@@ -664,15 +557,16 @@ public final class OrderRepository {
   private void decrementEscrow(Connection connection, UUID id, BigDecimal amount)
       throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("buy_orders")
-                + " SET escrow_reserved=escrow_reserved-? WHERE id=?")) {
+        connection.prepareStatement(statement("orders/decrement-escrow.sql"))) {
       statement.setBigDecimal(1, amount);
       sql.setUuid(statement, 2, id);
       if (statement.executeUpdate() != 1)
         throw new IllegalStateException("buy escrow update lost race");
     }
+  }
+
+  private String statement(String name) {
+    return SqlStatements.load(name, sql);
   }
 
   private SellOrder readSell(ResultSet rows) throws SQLException {

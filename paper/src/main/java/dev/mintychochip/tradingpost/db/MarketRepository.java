@@ -25,11 +25,8 @@ public final class MarketRepository {
   }
 
   public void insert(Connection connection, Market market) throws SQLException {
-    String statementSql =
-        "INSERT INTO "
-            + sql.table("markets")
-            + "(name,display_name,fee_bps,tax_bps) VALUES(?,?,?,?)";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("markets/insert.sql"))) {
       statement.setString(1, market.name());
       statement.setString(2, market.displayName());
       statement.setInt(3, market.feeBps());
@@ -39,9 +36,7 @@ public final class MarketRepository {
   }
 
   public Optional<Market> find(Connection connection, String name) throws SQLException {
-    String statementSql =
-        "SELECT name,display_name,fee_bps,tax_bps FROM " + sql.table("markets") + " WHERE name=?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement = connection.prepareStatement(statement("markets/find.sql"))) {
       statement.setString(1, name);
       try (ResultSet rows = statement.executeQuery()) {
         return rows.next()
@@ -53,11 +48,8 @@ public final class MarketRepository {
   }
 
   public void insertPost(Connection connection, TradingPostBlock post) throws SQLException {
-    String statementSql =
-        "INSERT INTO "
-            + sql.table("trading_posts")
-            + "(id,entity_uuid,market_name,world,x,y,z) VALUES(?,?,?,?,?,?,?)";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("markets/insert-post.sql"))) {
       sql.setUuid(statement, 1, post.id());
       sql.setUuid(statement, 2, post.entityId());
       statement.setString(3, post.marketName());
@@ -71,8 +63,7 @@ public final class MarketRepository {
 
   public boolean hasPostForMarket(Connection connection, String marketName) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "SELECT 1 FROM " + sql.table("trading_posts") + " WHERE market_name=? LIMIT 1")) {
+        connection.prepareStatement(statement("markets/has-post.sql"))) {
       statement.setString(1, marketName);
       try (ResultSet rows = statement.executeQuery()) {
         return rows.next();
@@ -82,11 +73,8 @@ public final class MarketRepository {
 
   public Optional<TradingPostBlock> findPostByEntity(Connection connection, UUID entityId)
       throws SQLException {
-    String statementSql =
-        "SELECT id,entity_uuid,market_name,world,x,y,z FROM "
-            + sql.table("trading_posts")
-            + " WHERE entity_uuid=?";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("markets/find-post-by-entity.sql"))) {
       sql.setUuid(statement, 1, entityId);
       try (ResultSet rows = statement.executeQuery()) {
         return rows.next() ? Optional.of(readPost(sql, rows)) : Optional.empty();
@@ -95,9 +83,8 @@ public final class MarketRepository {
   }
 
   public List<TradingPostBlock> listPosts(Connection connection) throws SQLException {
-    String statementSql =
-        "SELECT id,entity_uuid,market_name,world,x,y,z FROM " + sql.table("trading_posts");
-    try (PreparedStatement statement = connection.prepareStatement(statementSql);
+    try (PreparedStatement statement =
+            connection.prepareStatement(statement("markets/list-posts.sql"));
         ResultSet rows = statement.executeQuery()) {
       List<TradingPostBlock> posts = new ArrayList<>();
       while (rows.next()) {
@@ -109,11 +96,14 @@ public final class MarketRepository {
 
   public void deletePostByEntity(Connection connection, UUID entityId) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "DELETE FROM " + sql.table("trading_posts") + " WHERE entity_uuid=?")) {
+        connection.prepareStatement(statement("markets/delete-post-by-entity.sql"))) {
       sql.setUuid(statement, 1, entityId);
       statement.executeUpdate();
     }
+  }
+
+  private String statement(String name) {
+    return SqlStatements.load(name, sql);
   }
 
   private static TradingPostBlock readPost(SqlDialect sql, ResultSet rows) throws SQLException {

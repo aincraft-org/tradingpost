@@ -1,0 +1,1 @@
+SELECT operation_id,sell_order_id,market_name,seller,source_item_blob,source_fingerprint,original_quantity,state,failure_detail,created_at,updated_at FROM {schema}.sell_now_operations WHERE sell_order_id=?

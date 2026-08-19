@@ -1,0 +1,1 @@
+SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at FROM {schema}.sell_orders WHERE market_name=? AND status='ACTIVE' AND quantity_remaining>0 AND material=? ORDER BY unit_price ASC, created_at ASC, id ASC LIMIT ? OFFSET ?

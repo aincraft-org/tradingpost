@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS {schema}.trading_posts (id {uuid} PRIMARY KEY, market_name {keyed} NOT NULL REFERENCES {schema}.markets(name), world {keyed} NOT NULL, x {integer} NOT NULL, y {integer} NOT NULL, z {integer} NOT NULL, created_at {ts} NOT NULL{defaultNow}, UNIQUE (world, x, y, z))

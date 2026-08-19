@@ -1,5 +1,6 @@
 package dev.mintychochip.tradingpost.db;
 
+import dev.mintychochip.tradingpost.config.DatabaseEngine;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.domain.MailboxItem;
 import java.sql.Connection;
@@ -24,11 +25,8 @@ public final class MailboxRepository {
   }
 
   public void insert(Connection connection, MailboxItem item) throws SQLException {
-    String statementSql =
-        "INSERT INTO "
-            + sql.table("mailbox_items")
-            + " (id,market_name,owner,item_blob,fingerprint,reason,state,settlement_id) VALUES(?,?,?,?,?,?,?,?)";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("mailbox/insert.sql"))) {
       sql.setUuid(statement, 1, item.id());
       statement.setString(2, item.marketName());
       sql.setUuid(statement, 3, item.owner());
@@ -50,13 +48,11 @@ public final class MailboxRepository {
       String fingerprint,
       String reason)
       throws SQLException {
-    String statementSql =
-        sql.insertIgnore(
-            sql.table("mailbox_items"),
-            " (id,market_name,owner,item_blob,fingerprint,reason,state,settlement_id) ",
-            "(?,?,?,?,?,?, 'UNCLAIMED',?)",
-            "settlement_id");
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    String resource =
+        sql.engine() == DatabaseEngine.MYSQL || sql.engine() == DatabaseEngine.MARIADB
+            ? "mailbox/insert-delivery-ignore.sql"
+            : "mailbox/insert-delivery.sql";
+    try (PreparedStatement statement = connection.prepareStatement(statement(resource))) {
       sql.setUuid(statement, 1, settlementId);
       statement.setString(2, marketName);
       sql.setUuid(statement, 3, owner);
@@ -70,7 +66,7 @@ public final class MailboxRepository {
 
   public Optional<MailboxItem> find(Connection connection, UUID id, boolean lock)
       throws SQLException {
-    String statementSql = selectSql() + " WHERE id=?" + sql.forUpdate(lock);
+    String statementSql = statement("mailbox/find.sql") + sql.forUpdate(lock);
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       sql.setUuid(statement, 1, id);
       try (ResultSet rows = statement.executeQuery()) {
@@ -81,10 +77,7 @@ public final class MailboxRepository {
 
   public List<MailboxItem> list(Connection connection, UUID owner, String marketName)
       throws SQLException {
-    String statementSql =
-        selectSql()
-            + " WHERE owner=? AND market_name=? AND state='UNCLAIMED' ORDER BY created_at ASC";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement = connection.prepareStatement(statement("mailbox/list.sql"))) {
       sql.setUuid(statement, 1, owner);
       statement.setString(2, marketName);
       try (ResultSet rows = statement.executeQuery()) {
@@ -98,11 +91,8 @@ public final class MailboxRepository {
   }
 
   public boolean markClaiming(Connection connection, UUID id, UUID owner) throws SQLException {
-    String statementSql =
-        "UPDATE "
-            + sql.table("mailbox_items")
-            + " SET state='CLAIMING' WHERE id=? AND owner=? AND state='UNCLAIMED'";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("mailbox/mark-claiming.sql"))) {
       sql.setUuid(statement, 1, id);
       sql.setUuid(statement, 2, owner);
       return statement.executeUpdate() == 1;
@@ -111,10 +101,7 @@ public final class MailboxRepository {
 
   public void releaseClaiming(Connection connection, UUID id) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "UPDATE "
-                + sql.table("mailbox_items")
-                + " SET state='UNCLAIMED' WHERE id=? AND state='CLAIMING'")) {
+        connection.prepareStatement(statement("mailbox/release-claiming.sql"))) {
       sql.setUuid(statement, 1, id);
       statement.executeUpdate();
     }
@@ -123,11 +110,7 @@ public final class MailboxRepository {
   public void markClaimed(Connection connection, UUID id) throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "UPDATE "
-                + sql.table("mailbox_items")
-                + " SET state='CLAIMED',claimed_at="
-                + sql.now()
-                + " WHERE id=? AND state='CLAIMING'")) {
+            statement("mailbox/mark-claimed.sql").replace("{now}", sql.now()))) {
       sql.setUuid(statement, 1, id);
       if (statement.executeUpdate() != 1) {
         throw new IllegalStateException("mailbox claim state lost race");
@@ -135,9 +118,8 @@ public final class MailboxRepository {
     }
   }
 
-  private String selectSql() {
-    return "SELECT id,market_name,owner,item_blob,fingerprint,reason,state,settlement_id,created_at FROM "
-        + sql.table("mailbox_items");
+  private String statement(String name) {
+    return SqlStatements.load(name, sql);
   }
 
   private MailboxItem read(ResultSet rows) throws SQLException {

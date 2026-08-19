@@ -1,0 +1,1 @@
+INSERT INTO {schema}.buy_orders (id,market_name,buyer,material,template_fingerprint,quantity,quantity_remaining,unit_price,escrow_reserved,status,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)

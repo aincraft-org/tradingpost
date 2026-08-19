@@ -1,0 +1,1 @@
+SELECT id,market_name,buyer,material,template_fingerprint,quantity,quantity_remaining,unit_price,escrow_reserved,status,expires_at,created_at FROM {schema}.buy_orders WHERE market_name=? AND buyer=? AND status IN ('OPEN','CREATING') ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?

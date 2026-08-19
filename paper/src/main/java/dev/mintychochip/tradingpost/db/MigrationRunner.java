@@ -102,8 +102,12 @@ public final class MigrationRunner {
 
   private static void recordVersion(Connection connection, SqlDialect sql, int version)
       throws SQLException {
-    String insert = sql.insertIgnore(sql.table("schema_version"), "(version)", "(?)", "version");
-    try (PreparedStatement statement = connection.prepareStatement(insert)) {
+    String resource =
+        sql.engine() == DatabaseEngine.MYSQL || sql.engine() == DatabaseEngine.MARIADB
+            ? "schema/insert-version-ignore.sql"
+            : "schema/insert-version.sql";
+    try (PreparedStatement statement =
+        connection.prepareStatement(SqlStatements.load(resource, sql))) {
       statement.setInt(1, version);
       statement.executeUpdate();
     }
@@ -115,8 +119,7 @@ public final class MigrationRunner {
       return false;
     }
     try (PreparedStatement statement =
-        connection.prepareStatement(
-            "SELECT 1 FROM " + sql.table("schema_version") + " WHERE version=?")) {
+        connection.prepareStatement(SqlStatements.load("schema/select-version.sql", sql))) {
       statement.setInt(1, version);
       try (ResultSet rows = statement.executeQuery()) {
         return rows.next();
@@ -131,7 +134,11 @@ public final class MigrationRunner {
       return;
     }
     execute(
-        connection, "ALTER TABLE " + sql.table(table) + " ADD COLUMN " + column + " " + definition);
+        connection,
+        SqlStatements.load("schema/alter-add-column.sql", sql)
+            .replace("{table}", table)
+            .replace("{column}", column)
+            .replace("{definition}", definition));
   }
 
   private static void createIndexIfMissing(

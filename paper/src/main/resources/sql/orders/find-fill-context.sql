@@ -1,0 +1,1 @@
+SELECT f.fill_id,f.market_name,f.sell_order_id,f.buy_order_id,f.quantity,f.unit_price,f.item_blob,f.remaining_item_blob,f.status,f.created_at,s.seller,b.buyer,s.fingerprint,f.operation_id FROM {schema}.fills f JOIN {schema}.sell_orders s ON s.id=f.sell_order_id JOIN {schema}.buy_orders b ON b.id=f.buy_order_id WHERE f.fill_id=?

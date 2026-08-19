@@ -26,11 +26,8 @@ public final class SettlementRepository {
   }
 
   public void insertReserved(Connection connection, SettlementDraft draft) throws SQLException {
-    String statementSql =
-        "INSERT INTO "
-            + sql.table("settlements")
-            + "(id,kind,idempotency_key,fill_id,order_id,amount,state) VALUES(?,?,?,?,?,?, 'RESERVED')";
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    try (PreparedStatement statement =
+        connection.prepareStatement(statement("settlements/insert-reserved.sql"))) {
       sql.setUuid(statement, 1, draft.id());
       statement.setString(2, draft.kind().name());
       statement.setString(3, draft.idempotencyKey());
@@ -43,7 +40,7 @@ public final class SettlementRepository {
 
   public Optional<Settlement> find(Connection connection, UUID id, boolean lock)
       throws SQLException {
-    String statementSql = selectSql() + " WHERE id=?" + sql.forUpdate(lock);
+    String statementSql = statement("settlements/find.sql") + sql.forUpdate(lock);
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       sql.setUuid(statement, 1, id);
       try (ResultSet rows = statement.executeQuery()) {
@@ -54,11 +51,7 @@ public final class SettlementRepository {
 
   public Optional<Settlement> leaseNext(Connection connection, String nodeId, Instant now)
       throws SQLException {
-    String statementSql =
-        selectSql()
-            + " WHERE state IN ('RESERVED','MONEY_SETTLED') "
-            + "AND (lease_until IS NULL OR lease_until < ?) ORDER BY updated_at ASC LIMIT 1"
-            + sql.skipLocked();
+    String statementSql = statement("settlements/lease-next.sql") + sql.skipLocked();
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       sql.setInstant(statement, 1, now);
       try (ResultSet rows = statement.executeQuery()) {
@@ -68,10 +61,7 @@ public final class SettlementRepository {
         Settlement before = read(rows);
         Instant leaseUntil = now.plusSeconds(30);
         try (PreparedStatement update =
-            connection.prepareStatement(
-                "UPDATE "
-                    + sql.table("settlements")
-                    + " SET lease_owner=?,lease_until=?,attempts=attempts+1,updated_at=? WHERE id=?")) {
+            connection.prepareStatement(statement("settlements/lease.sql"))) {
           update.setString(1, nodeId);
           sql.setInstant(update, 2, leaseUntil);
           sql.setInstant(update, 3, now);
@@ -86,12 +76,7 @@ public final class SettlementRepository {
   public void advance(
       Connection connection, UUID id, SettlementState from, SettlementState to, String error)
       throws SQLException {
-    String statementSql =
-        "UPDATE "
-            + sql.table("settlements")
-            + " SET state=?,last_error=?,lease_owner=NULL,lease_until=NULL,updated_at="
-            + sql.now()
-            + " WHERE id=? AND state=?";
+    String statementSql = statement("settlements/advance.sql").replace("{now}", sql.now());
     try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
       statement.setString(1, to.name());
       statement.setString(2, error);
@@ -103,9 +88,8 @@ public final class SettlementRepository {
     }
   }
 
-  private String selectSql() {
-    return "SELECT id,kind,idempotency_key,fill_id,order_id,amount,state,attempts,last_error,lease_owner,lease_until,created_at,updated_at FROM "
-        + sql.table("settlements");
+  private String statement(String name) {
+    return SqlStatements.load(name, sql);
   }
 
   private Settlement read(ResultSet rows) throws SQLException {

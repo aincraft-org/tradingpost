@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS {schema}.markets (name {keyed} PRIMARY KEY, display_name {keyed} NOT NULL, fee_bps {integer} NOT NULL CHECK (fee_bps BETWEEN 0 AND 10000), tax_bps {integer} NOT NULL CHECK (tax_bps BETWEEN 0 AND 10000), created_at {ts} NOT NULL{defaultNow})
