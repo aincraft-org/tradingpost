@@ -136,7 +136,7 @@ public final class MigrationRunner {
     execute(
         connection,
         SqlStatements.load("schema/alter-add-column.sql", sql)
-            .replace("{table}", table)
+            .replace("{qualifiedTable}", sql.table(table))
             .replace("{column}", column)
             .replace("{definition}", definition));
   }

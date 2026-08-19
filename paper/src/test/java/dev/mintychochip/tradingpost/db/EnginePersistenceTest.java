@@ -18,43 +18,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Testcontainers
 class EnginePersistenceTest {
-  private PostgreSQLContainer<?> postgres;
-  private MySQLContainer<?> mysql;
-  private MariaDBContainer<?> mariadb;
+  @Container
+  static final PostgreSQLContainer<?> POSTGRES =
+      new PostgreSQLContainer<>("postgres:16-alpine").withLogConsumer(frame -> {});
 
-  @BeforeAll
-  void startContainers() {
-    postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-    mysql = new MySQLContainer<>("mysql:8.4");
-    mariadb = new MariaDBContainer<>("mariadb:11");
-    postgres.start();
-    mysql.start();
-    mariadb.start();
-  }
+  @Container
+  static final MySQLContainer<?> MYSQL =
+      new MySQLContainer<>("mysql:8.4").withLogConsumer(frame -> {});
 
-  @AfterAll
-  void stopContainers() {
-    if (postgres != null) {
-      postgres.stop();
-    }
-    if (mysql != null) {
-      mysql.stop();
-    }
-    if (mariadb != null) {
-      mariadb.stop();
-    }
-  }
+  @Container
+  static final MariaDBContainer<?> MARIADB =
+      new MariaDBContainer<>("mariadb:11").withLogConsumer(frame -> {});
 
   @ParameterizedTest
   @EnumSource(DatabaseEngine.class)
@@ -151,26 +135,27 @@ class EnginePersistenceTest {
       case POSTGRESQL ->
           TestConfigs.jdbc(
               engine,
-              postgres.getJdbcUrl(),
-              postgres.getUsername(),
-              postgres.getPassword(),
+              POSTGRES.getJdbcUrl(),
+              POSTGRES.getUsername(),
+              POSTGRES.getPassword(),
               "engine_pg");
       case MYSQL ->
           TestConfigs.jdbc(
               engine,
-              mysql.getJdbcUrl(),
-              mysql.getUsername(),
-              mysql.getPassword(),
-              mysql.getDatabaseName());
+              MYSQL.getJdbcUrl(),
+              MYSQL.getUsername(),
+              MYSQL.getPassword(),
+              MYSQL.getDatabaseName());
       case MARIADB ->
           TestConfigs.jdbc(
               engine,
-              mariadb.getJdbcUrl(),
-              mariadb.getUsername(),
-              mariadb.getPassword(),
-              mariadb.getDatabaseName());
+              MARIADB.getJdbcUrl(),
+              MARIADB.getUsername(),
+              MARIADB.getPassword(),
+              MARIADB.getDatabaseName());
       case SQLITE ->
-          TestConfigs.jdbc(engine, "jdbc:sqlite:" + sqliteFile.toAbsolutePath(), "", "", "main");
+          TestConfigs.jdbc(
+              engine, "jdbc:sqlite:" + sqliteFile.toAbsolutePath(), "", "", "tradingpost");
     };
   }
 }

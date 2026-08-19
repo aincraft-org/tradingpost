@@ -88,6 +88,8 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+    maxParallelForks = 1
+    reports.junitXml.required.set(false)
 }
 
 tasks.jar {

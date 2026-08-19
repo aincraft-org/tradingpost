@@ -1,1 +1,1 @@
-ALTER TABLE {schema}.{table} ADD COLUMN {column} {definition}
+ALTER TABLE {qualifiedTable} ADD COLUMN {column} {definition}

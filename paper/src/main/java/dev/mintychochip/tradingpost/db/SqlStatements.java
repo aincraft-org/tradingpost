@@ -1,14 +1,17 @@
 package dev.mintychochip.tradingpost.db;
 
-import dev.mintychochip.tradingpost.config.DatabaseEngine;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class SqlStatements {
   private static final ConcurrentHashMap<String, String> CACHE = new ConcurrentHashMap<>();
+  private static final Pattern QUALIFIED_TABLE =
+      Pattern.compile("\\{schema}\\.([A-Za-z_][A-Za-z0-9_]*)");
 
   private SqlStatements() {}
 
@@ -20,17 +23,17 @@ public final class SqlStatements {
     return CACHE.computeIfAbsent(name, SqlStatements::read);
   }
 
-  public static String load(String name, String schema) {
-    Objects.requireNonNull(schema, "schema");
-    return load(name).replace("{schema}", schema);
-  }
-
   public static String load(String name, SqlDialect dialect) {
     Objects.requireNonNull(dialect, "dialect");
-    if (dialect.engine() == DatabaseEngine.SQLITE) {
-      return load(name).replace("{schema}.", "");
+    String sql = load(name);
+    Matcher matcher = QUALIFIED_TABLE.matcher(sql);
+    StringBuilder expanded = new StringBuilder();
+    while (matcher.find()) {
+      matcher.appendReplacement(
+          expanded, Matcher.quoteReplacement(dialect.table(matcher.group(1))));
     }
-    return load(name, dialect.schema());
+    matcher.appendTail(expanded);
+    return expanded.toString().replace("{schema}", dialect.schema());
   }
 
   private static String read(String name) {

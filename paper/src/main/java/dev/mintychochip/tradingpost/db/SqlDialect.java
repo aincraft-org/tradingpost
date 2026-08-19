@@ -9,11 +9,16 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.UUID;
 
 /** Engine-specific SQL fragments and JDBC bindings for TradingPost persistence. */
 public final class SqlDialect {
+  /** Fixed-fraction UTC so SQLite TEXT comparisons of instants are lexicographic. */
+  static final DateTimeFormatter SQLITE_INSTANT =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'").withZone(ZoneOffset.UTC);
+
   private final DatabaseEngine engine;
   private final String schema;
 
@@ -63,9 +68,17 @@ public final class SqlDialect {
   public String now() {
     return switch (engine) {
       case POSTGRESQL -> "clock_timestamp()";
-      case SQLITE -> "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+      case SQLITE -> "strftime('%Y-%m-%dT%H:%M:%f000Z','now')";
       case MYSQL, MARIADB -> "CURRENT_TIMESTAMP(6)";
     };
+  }
+
+  public String formatInstant(Instant value) {
+    Objects.requireNonNull(value, "value");
+    if (engine == DatabaseEngine.SQLITE) {
+      return SQLITE_INSTANT.format(value);
+    }
+    return value.toString();
   }
 
   public String defaultNow() {
@@ -196,7 +209,7 @@ public final class SqlDialect {
     switch (engine) {
       case POSTGRESQL ->
           statement.setObject(index, OffsetDateTime.ofInstant(value, ZoneOffset.UTC));
-      case SQLITE -> statement.setString(index, value.toString());
+      case SQLITE -> statement.setString(index, formatInstant(value));
       case MYSQL, MARIADB -> statement.setTimestamp(index, Timestamp.from(value));
     }
   }

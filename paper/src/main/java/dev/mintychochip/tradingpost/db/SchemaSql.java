@@ -65,14 +65,14 @@ final class SchemaSql {
         .replace("{unique}", unique ? "UNIQUE " : "")
         .replace("{ifNotExists}", ifNotExists)
         .replace("{name}", name)
-        .replace("{table}", table)
+        .replace("{qualifiedTable}", sql.table(table))
         .replace("{columns}", columns);
   }
 
   static String postgresPartialUnique(SqlDialect sql, String name, String table, String columns) {
     return SqlStatements.load("schema/postgres-partial-unique.sql", sql)
         .replace("{name}", name)
-        .replace("{table}", table)
+        .replace("{qualifiedTable}", sql.table(table))
         .replace("{columns}", columns);
   }
 
