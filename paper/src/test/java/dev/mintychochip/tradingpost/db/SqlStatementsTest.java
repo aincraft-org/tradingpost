@@ -1,6 +1,7 @@
 package dev.mintychochip.tradingpost.db;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,5 +74,28 @@ class SqlStatementsTest {
     } finally {
       Files.deleteIfExists(sqliteFile);
     }
+  }
+
+  @Test
+  void loadSettlementCompletionSqlFromResources() {
+    String undelivered = SqlStatements.load("settlements/count-undelivered-fills.sql");
+    assertTrue(undelivered.contains("{schema}.fills"));
+    assertTrue(undelivered.contains("FILTER"));
+
+    String committed = SqlStatements.load("settlements/exists-committed-or-delivered.sql");
+    assertTrue(committed.contains("{schema}.settlements"));
+    assertTrue(committed.contains("MONEY_SETTLED"));
+
+    TradingPostConfig sqlite =
+        TestConfigs.jdbc(DatabaseEngine.SQLITE, "jdbc:sqlite:unused", "", "", "main");
+    SqlDialect dialect = SqlDialect.from(sqlite);
+    String sqliteUndelivered =
+        SqlStatements.load("settlements/count-undelivered-fills.sql", dialect);
+    assertFalse(sqliteUndelivered.contains("{schema}."));
+    assertTrue(sqliteUndelivered.contains("FROM fills"));
+    String sqliteCommitted =
+        SqlStatements.load("settlements/exists-committed-or-delivered.sql", dialect);
+    assertFalse(sqliteCommitted.contains("{schema}."));
+    assertTrue(sqliteCommitted.contains("FROM settlements"));
   }
 }

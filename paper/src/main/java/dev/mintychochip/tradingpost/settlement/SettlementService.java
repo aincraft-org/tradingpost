@@ -11,6 +11,8 @@ import dev.mintychochip.tradingpost.db.OrderRepository;
 import dev.mintychochip.tradingpost.db.ReviewRepository;
 import dev.mintychochip.tradingpost.db.SellNowOperationRepository;
 import dev.mintychochip.tradingpost.db.SettlementRepository;
+import dev.mintychochip.tradingpost.db.SqlDialect;
+import dev.mintychochip.tradingpost.db.SqlStatements;
 import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.domain.OrderStatus;
 import dev.mintychochip.tradingpost.domain.SellNowOperation;
@@ -38,6 +40,7 @@ public final class SettlementService {
   private final SettlementTransferBuilder transfers;
   private final SellNowOperationRepository operations;
   private final ReviewRepository reviews;
+  private final SqlDialect sql;
   private final SettlementStateMachine states = new SettlementStateMachine();
 
   public SettlementService(
@@ -51,6 +54,7 @@ public final class SettlementService {
     this.transfers = new SettlementTransferBuilder(config);
     this.operations = new SellNowOperationRepository(config);
     this.reviews = new ReviewRepository(config);
+    this.sql = SqlDialect.from(config);
   }
 
   public CompletionStage<Void> submitReserved(UUID settlementId) {
@@ -330,10 +334,7 @@ public final class SettlementService {
       return;
     }
     try (var statement =
-        connection.prepareStatement(
-            "SELECT count(*) FILTER (WHERE status <> 'DELIVERED') FROM "
-                + operations.schema()
-                + ".fills WHERE operation_id=?")) {
+        connection.prepareStatement(statement("settlements/count-undelivered-fills.sql"))) {
       statement.setObject(1, operationId);
       try (var rows = statement.executeQuery()) {
         rows.next();
@@ -372,10 +373,7 @@ public final class SettlementService {
   private boolean hasCommittedOrDeliveredFill(java.sql.Connection connection, UUID operationId)
       throws java.sql.SQLException {
     try (var statement =
-        connection.prepareStatement(
-            "SELECT EXISTS (SELECT 1 FROM "
-                + operations.schema()
-                + ".settlements WHERE operation_id=? AND state IN ('MONEY_SETTLED','DELIVERED'))")) {
+        connection.prepareStatement(statement("settlements/exists-committed-or-delivered.sql"))) {
       statement.setObject(1, operationId);
       try (var rows = statement.executeQuery()) {
         rows.next();
@@ -431,6 +429,10 @@ public final class SettlementService {
       case FEE_REFUND ->
           transfers.feeRefund(settlement.orderId(), context.seller(), settlement.amount());
     };
+  }
+
+  private String statement(String name) {
+    return SqlStatements.load(name, sql);
   }
 
   private record SettlementContext(
