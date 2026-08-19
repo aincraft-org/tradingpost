@@ -136,4 +136,53 @@ class SqlitePersistenceTest {
       Files.deleteIfExists(sqliteFile);
     }
   }
+
+  @Test
+  void activateSellWithConfigSchemaTradingpost() throws Exception {
+    Path sqliteFile = Files.createTempFile("tradingpost-activate", ".db");
+    TradingPostConfig config =
+        TestConfigs.jdbc(
+            DatabaseEngine.SQLITE,
+            "jdbc:sqlite:" + sqliteFile.toAbsolutePath(),
+            "",
+            "",
+            "tradingpost");
+    try (Database database = new Database(config)) {
+      MigrationRunner.migrate(database, config);
+      OrderRepository orders = new OrderRepository(config);
+      MarketRepository markets = new MarketRepository(config);
+      UUID sellId = UUID.randomUUID();
+      Instant now = Instant.parse("2026-08-19T12:00:00Z");
+      database.transaction(
+          connection -> {
+            markets.insert(connection, new Market("spawn", "Spawn", 100, 500));
+            orders.insertSell(
+                connection,
+                new SellOrder(
+                    sellId,
+                    "spawn",
+                    UUID.randomUUID(),
+                    "minecraft:stone",
+                    new byte[] {1},
+                    "fp",
+                    1,
+                    1,
+                    new BigDecimal("1.00"),
+                    SellOrderMode.NORMAL,
+                    OrderStatus.CREATING,
+                    now.plusSeconds(3600),
+                    now));
+            orders.activateSell(connection, sellId);
+            return null;
+          });
+      database.transaction(
+          connection -> {
+            SellOrder loaded = orders.findSell(connection, sellId, false).orElseThrow();
+            assertEquals(OrderStatus.ACTIVE, loaded.status());
+            return null;
+          });
+    } finally {
+      Files.deleteIfExists(sqliteFile);
+    }
+  }
 }

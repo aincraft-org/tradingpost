@@ -186,7 +186,8 @@ public final class OrderRepository {
   private void transition(Connection connection, String table, UUID id, String from, String to)
       throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement(statement("orders/transition.sql").replace("{table}", table))) {
+        connection.prepareStatement(
+            statement("orders/transition.sql").replace("{qualifiedTable}", sql.table(table)))) {
       statement.setString(1, to);
       sql.setUuid(statement, 2, id);
       statement.setString(3, from);

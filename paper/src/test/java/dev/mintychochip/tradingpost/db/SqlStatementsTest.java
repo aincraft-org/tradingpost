@@ -25,6 +25,17 @@ class SqlStatementsTest {
   }
 
   @Test
+  void transitionSqlQualifiesTableThroughDialect() {
+    SqlDialect sqlite = new SqlDialect(DatabaseEngine.SQLITE, "tradingpost");
+    String expanded =
+        SqlStatements.load("orders/transition.sql", sqlite)
+            .replace("{qualifiedTable}", sqlite.table("sell_orders"));
+    assertTrue(expanded.startsWith("UPDATE sell_orders "));
+    assertFalse(expanded.contains("tradingpost."));
+    assertEquals("sell_orders", sqlite.table("sell_orders"));
+  }
+
+  @Test
   void loadRejectsMissingResource() {
     assertThrows(IllegalStateException.class, () -> SqlStatements.load("missing.sql"));
   }
