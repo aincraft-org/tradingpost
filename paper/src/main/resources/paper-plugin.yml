@@ -8,13 +8,12 @@ load: POSTWORLD
 libraries:
   - com.zaxxer:HikariCP:6.2.1
   - org.postgresql:postgresql:42.7.5
+  - com.mysql:mysql-connector-j:9.3.0
+  - org.mariadb.jdbc:mariadb-java-client:3.5.3
+  - org.xerial:sqlite-jdbc:3.49.1.0
 
 dependencies:
   server:
-    craftux-paper:
-      load: BEFORE
-      required: true
-      join-classpath: true
     Mint:
       load: BEFORE
       required: true

@@ -12,7 +12,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Entry façade for Trading Post UI. All screens are CraftUX inventory views owned by {@link
+ * Entry façade for Trading Post UI. All screens are handwritten Paper inventories owned by {@link
  * TradingPostUi}; this class preserves the historical open API used by commands and post access.
  */
 public final class TradingPostMenu implements Listener {

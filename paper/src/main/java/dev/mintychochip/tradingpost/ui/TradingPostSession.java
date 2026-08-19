@@ -9,8 +9,8 @@ import java.util.UUID;
 /**
  * Host-owned per-player Trading Post UI session state.
  *
- * <p>CraftUX views are pure presentation; drafts, pagination, and slot→id maps live here and are
- * exposed via {@code provide}/{@code changed}.
+ * <p>Handwritten inventory layouts are pure presentation; drafts, pagination, and slot→id maps live
+ * here.
  */
 public final class TradingPostSession {
   public static final BigDecimal MIN_PRICE = new BigDecimal("0.01");

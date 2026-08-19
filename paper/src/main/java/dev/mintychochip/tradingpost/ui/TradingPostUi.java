@@ -1,14 +1,5 @@
 package dev.mintychochip.tradingpost.ui;
 
-import dev.craftux.api.inventory.InventoryAction;
-import dev.craftux.api.model.UiView;
-import dev.craftux.api.render.SurfaceRenderer;
-import dev.craftux.api.surface.SurfaceKind;
-import dev.craftux.common.inventory.InventoryRuntime;
-import dev.craftux.common.inventory.InventorySurfaceRenderer;
-import dev.craftux.common.session.Craftux;
-import dev.craftux.common.session.ExpressionViewPlanner;
-import dev.craftux.common.session.UiRuntime;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MailboxRepository;
@@ -22,8 +13,6 @@ import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
 import dev.mintychochip.tradingpost.mailbox.MailboxService;
 import dev.mintychochip.tradingpost.market.OrderService;
 import dev.mintychochip.tradingpost.money.MoneyMath;
-import dev.mintychochip.tradingpost.ui.craftux.BukkitInventoryPort;
-import dev.mintychochip.tradingpost.ui.craftux.PaperInventoryRenderer;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -36,18 +25,25 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 
 /**
- * CraftUX host for Trading Post inventory screens.
+ * Native Paper inventory host for Trading Post screens.
  *
- * <p>Views stay pure; this class owns sessions, providers, inventory actions, navigation, and
+ * <p>Layouts stay pure; this class owns sessions, item painting, click dispatch, navigation, and
  * domain side effects.
  */
 public final class TradingPostUi implements Listener {
@@ -60,13 +56,10 @@ public final class TradingPostUi implements Listener {
   private final OrderService orderService;
   private final MailboxService mailboxService;
 
-  private final Map<String, UiView> views;
-  private final Craftux craftux;
-  private final InventoryRuntime inventoryRuntime;
-  private final PaperInventoryRenderer inventoryRenderer;
-  private final Map<String, InventoryAction> inventoryActions;
   private final Map<UUID, TradingPostSession> sessions = new ConcurrentHashMap<>();
   private final Map<UUID, Map<String, Object>> providerSnapshots = new ConcurrentHashMap<>();
+  private final Map<UUID, Inventory> inventories = new ConcurrentHashMap<>();
+  private final Set<UUID> switching = ConcurrentHashMap.newKeySet();
 
   public TradingPostUi(
       Plugin plugin,
@@ -83,35 +76,6 @@ public final class TradingPostUi implements Listener {
     this.executor = Objects.requireNonNull(executor, "executor");
     this.orders = new OrderRepository(config.schema());
     this.mailbox = new MailboxRepository(config.schema());
-    this.views = TradingPostViews.all();
-    this.inventoryActions = buildInventoryActions();
-    BukkitInventoryPort port = new BukkitInventoryPort();
-    this.inventoryRuntime = new InventoryRuntime(port, inventoryActions);
-    InventorySurfaceRenderer inventorySurface = new InventorySurfaceRenderer(inventoryRuntime);
-    List<SurfaceRenderer> renderers = List.of(inventorySurface);
-    UiRuntime runtime = new UiRuntime(views, renderers, new ExpressionViewPlanner());
-    Craftux ui = Craftux.of(views, runtime);
-    ui.provide("tp", this::providerFor);
-    this.craftux = ui;
-    inventoryRuntime.onSessionClosed(
-        audience -> {
-          runtime.detachSurface(audience, SurfaceKind.INVENTORY);
-          if (ui.isOpen(audience)) {
-            try {
-              ui.close(audience);
-            } catch (RuntimeException ignored) {
-              // Already torn down by inventory close.
-            }
-          }
-          sessions.remove(audience);
-          providerSnapshots.remove(audience);
-        });
-    this.inventoryRenderer = new PaperInventoryRenderer(plugin, port, inventoryRuntime);
-  }
-
-  /** Inventory action ids registered on the host (for tests). */
-  public Set<String> registeredActionIds() {
-    return Set.copyOf(inventoryActions.keySet());
   }
 
   /**
@@ -155,13 +119,8 @@ public final class TradingPostUi implements Listener {
     return Set.copyOf(ids.keySet());
   }
 
-  /** Loaded CraftUX views (for tests). */
-  public Map<String, UiView> views() {
-    return views;
-  }
-
-  public Craftux craftux() {
-    return craftux;
+  public Set<String> registeredActionIds() {
+    return hostActionIds();
   }
 
   public void open(Player player, String marketName) {
@@ -188,40 +147,30 @@ public final class TradingPostUi implements Listener {
       session.detailOrderId(null);
     }
     seedLoadingSnapshot(session);
-    String viewName = TradingPostViews.viewNameFor(screen);
-    if (craftux.isOpen(id)) {
-      craftux.switchView(id, viewName);
-    } else {
-      craftux.open(viewName, id);
-    }
-    craftux.changed(id, "tp");
-    craftux.drainRefreshQueue();
+    show(player, session);
     loadScreenData(player, session);
   }
 
   public void close(Player player) {
     UUID id = player.getUniqueId();
-    if (craftux.isOpen(id)) {
-      craftux.close(id);
-    }
+    Inventory open = inventories.remove(id);
     sessions.remove(id);
     providerSnapshots.remove(id);
+    if (open != null && player.getOpenInventory().getTopInventory().equals(open)) {
+      player.closeInventory();
+    }
   }
 
   public void shutdown() {
     for (UUID id : List.copyOf(sessions.keySet())) {
-      try {
-        if (craftux.isOpen(id)) {
-          craftux.close(id);
-        }
-      } catch (RuntimeException ignored) {
+      Player player = Bukkit.getPlayer(id);
+      if (player != null) {
+        close(player);
+      } else {
+        inventories.remove(id);
+        sessions.remove(id);
+        providerSnapshots.remove(id);
       }
-    }
-    sessions.clear();
-    providerSnapshots.clear();
-    try {
-      inventoryRenderer.closeAll();
-    } catch (RuntimeException ignored) {
     }
   }
 
@@ -230,9 +179,233 @@ public final class TradingPostUi implements Listener {
     close(event.getPlayer());
   }
 
-  private Object providerFor(UUID audience) {
-    Map<String, Object> snap = providerSnapshots.get(audience);
-    return snap == null ? Map.of("title", "Trading Post") : snap;
+  @EventHandler
+  public void onClick(InventoryClickEvent event) {
+    if (!(event.getWhoClicked() instanceof Player player)) {
+      return;
+    }
+    Inventory top = event.getView().getTopInventory();
+    if (!owns(player.getUniqueId(), top)) {
+      return;
+    }
+    int raw = event.getRawSlot();
+    if (raw < 0 || raw >= top.getSize()) {
+      if (event.isShiftClick()) {
+        event.setCancelled(true);
+      }
+      return;
+    }
+    event.setCancelled(true);
+    TradingPostSession session = sessions.get(player.getUniqueId());
+    if (session == null) {
+      return;
+    }
+    TradingPostViews.Slot slot = TradingPostViews.layoutFor(session.screen()).slotAt(raw);
+    if (slot == null || slot.actionId() == null) {
+      return;
+    }
+    dispatch(player.getUniqueId(), slot.actionId());
+  }
+
+  @EventHandler
+  public void onDrag(InventoryDragEvent event) {
+    if (!(event.getWhoClicked() instanceof Player player)) {
+      return;
+    }
+    Inventory top = event.getView().getTopInventory();
+    if (!owns(player.getUniqueId(), top)) {
+      return;
+    }
+    int size = top.getSize();
+    for (int slot : event.getRawSlots()) {
+      if (slot >= 0 && slot < size) {
+        event.setCancelled(true);
+        return;
+      }
+    }
+  }
+
+  @EventHandler
+  public void onClose(InventoryCloseEvent event) {
+    if (!(event.getPlayer() instanceof Player player)) {
+      return;
+    }
+    UUID id = player.getUniqueId();
+    if (switching.contains(id)) {
+      return;
+    }
+    Inventory open = inventories.get(id);
+    if (open != null && open.equals(event.getInventory())) {
+      inventories.remove(id);
+      sessions.remove(id);
+      providerSnapshots.remove(id);
+    }
+  }
+
+  /** Dispatches a declared action id through the shipped click router. */
+  void dispatch(UUID audience, String actionId) {
+    TradingPostClickRouter.Intent intent = TradingPostClickRouter.intent(actionId);
+    switch (intent) {
+      case TAB_BROWSE -> switchTab(audience, TradingPostSession.Screen.BROWSE);
+      case TAB_SELL -> switchTab(audience, TradingPostSession.Screen.SELL);
+      case TAB_BUY_ORDERS -> switchTab(audience, TradingPostSession.Screen.BUY_ORDERS);
+      case TAB_MY_ORDERS -> switchTab(audience, TradingPostSession.Screen.MY_ORDERS);
+      case TAB_MAILBOX -> switchTab(audience, TradingPostSession.Screen.MAILBOX);
+      case PAGE_PREV -> page(audience, -1);
+      case PAGE_NEXT -> page(audience, +1);
+      case FILTER_HELD -> filterHeld(audience);
+      case FILTER_CLEAR -> filterClear(audience);
+      case LISTING -> listingClick(audience, TradingPostClickRouter.listingIndex(actionId));
+      case SELL_PRICE_DEC -> sellPrice(audience, -1);
+      case SELL_PRICE_INC -> sellPrice(audience, +1);
+      case SELL_QTY_DEC -> sellQty(audience, -1);
+      case SELL_QTY_INC -> sellQty(audience, +1);
+      case SELL_DURATION -> sellDuration(audience);
+      case SELL_LIST -> placeFromHand(audience, false);
+      case SELL_NOW -> placeFromHand(audience, true);
+      case BUY_PRICE_DEC -> buyPrice(audience, -1);
+      case BUY_PRICE_INC -> buyPrice(audience, +1);
+      case BUY_QTY_DEC -> buyQty(audience, -1);
+      case BUY_QTY_INC -> buyQty(audience, +1);
+      case BUY_DURATION -> buyDuration(audience);
+      case BUY_EXACT -> buyExact(audience);
+      case BUY_PLACE -> placeBuy(audience);
+      case DETAIL_QTY_DEC -> detailQty(audience, -1);
+      case DETAIL_QTY_INC -> detailQty(audience, +1);
+      case DETAIL_QTY_ALL -> detailQtyAll(audience);
+      case DETAIL_BUY -> confirmBuyNow(audience, false);
+      case DETAIL_BUY_ALL -> confirmBuyNow(audience, true);
+      case DETAIL_BACK -> switchTab(audience, TradingPostSession.Screen.BROWSE);
+      case UNKNOWN -> {
+        // Unregistered action ids are ignored.
+      }
+    }
+  }
+
+  private boolean owns(UUID audience, Inventory inventory) {
+    return inventory != null && inventories.get(audience) == inventory;
+  }
+
+  private void show(Player player, TradingPostSession session) {
+    TradingPostViews.ScreenLayout layout = TradingPostViews.layoutFor(session.screen());
+    UUID id = player.getUniqueId();
+    Inventory existing = inventories.get(id);
+    if (existing != null && existing.getSize() == layout.size()) {
+      paint(existing, session);
+      return;
+    }
+    switching.add(id);
+    try {
+      TradingPostHolder holder = new TradingPostHolder(id);
+      Inventory inventory =
+          Bukkit.createInventory(holder, layout.size(), Component.text(titleFor(session)));
+      holder.inventory(inventory);
+      inventories.put(id, inventory);
+      paint(inventory, session);
+      player.openInventory(inventory);
+    } finally {
+      switching.remove(id);
+    }
+  }
+
+  private static String titleFor(TradingPostSession session) {
+    if (session.screen() == TradingPostSession.Screen.DETAIL) {
+      return "Buy Now";
+    }
+    return "Trading Post · " + session.marketName();
+  }
+
+  private void paint(Inventory inventory, TradingPostSession session) {
+    TradingPostViews.ScreenLayout layout = TradingPostViews.layoutFor(session.screen());
+    Map<String, Object> root = providerSnapshots.get(session.playerId());
+    inventory.clear();
+    for (TradingPostViews.Slot slot : layout.slots()) {
+      if (slot.index() >= inventory.getSize()) {
+        continue;
+      }
+      inventory.setItem(slot.index(), stackFor(slot, root));
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static ItemStack stackFor(TradingPostViews.Slot slot, Map<String, Object> root) {
+    String materialKey = slot.material();
+    String label = slot.label();
+    int amount = 1;
+    List<String> lore = List.of();
+    Map<String, Object> bound = bind(root, slot.bindPath());
+    if (bound != null) {
+      Object material = bound.get("material");
+      if (material instanceof String value && !value.isBlank()) {
+        materialKey = value;
+      }
+      Object boundLabel = bound.get("label");
+      if (boundLabel instanceof String value) {
+        label = value;
+      }
+      Object boundAmount = bound.get("amount");
+      if (boundAmount instanceof Number number) {
+        amount = Math.max(1, number.intValue());
+      }
+      String lore0 = string(bound.get("lore0"));
+      String lore1 = string(bound.get("lore1"));
+      String lore2 = string(bound.get("lore2"));
+      if (lore0 != null || lore1 != null || lore2 != null) {
+        lore =
+            List.of(
+                lore0 == null ? " " : lore0,
+                lore1 == null ? " " : lore1,
+                lore2 == null ? " " : lore2);
+      }
+    }
+    return itemStack(materialKey, amount, label, lore);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> bind(Map<String, Object> root, String path) {
+    if (root == null || path == null || path.isBlank()) {
+      return null;
+    }
+    Object current = root;
+    for (String part : path.split("\\.")) {
+      if (!(current instanceof Map<?, ?> map)) {
+        return null;
+      }
+      current = map.get(part);
+    }
+    if (current instanceof Map<?, ?> map) {
+      return (Map<String, Object>) map;
+    }
+    return null;
+  }
+
+  private static String string(Object value) {
+    return value instanceof String text ? text : null;
+  }
+
+  private static ItemStack itemStack(
+      String materialKey, int amount, String label, List<String> lore) {
+    Material material = Material.matchMaterial(materialKey);
+    if (material == null) {
+      material = Material.STONE;
+    }
+    ItemStack stack = new ItemStack(material, Math.min(64, Math.max(1, amount)));
+    ItemMeta meta = stack.getItemMeta();
+    if (meta == null) {
+      return stack;
+    }
+    if (label != null && !label.isBlank()) {
+      meta.displayName(Component.text(label).decoration(TextDecoration.ITALIC, false));
+    }
+    if (lore != null && !lore.isEmpty()) {
+      meta.lore(
+          lore.stream()
+              .map(
+                  line -> (Component) Component.text(line).decoration(TextDecoration.ITALIC, false))
+              .toList());
+    }
+    stack.setItemMeta(meta);
+    return stack;
   }
 
   private void seedLoadingSnapshot(TradingPostSession session) {
@@ -784,70 +957,13 @@ public final class TradingPostUi implements Listener {
   }
 
   private void refresh(UUID audience) {
-    if (!craftux.isOpen(audience)) {
+    Player player = Bukkit.getPlayer(audience);
+    Inventory inventory = inventories.get(audience);
+    TradingPostSession session = sessions.get(audience);
+    if (player == null || inventory == null || session == null) {
       return;
     }
-    craftux.changed(audience, "tp");
-    craftux.drainRefreshQueue();
-  }
-
-  private Map<String, InventoryAction> buildInventoryActions() {
-    Map<String, InventoryAction> actions = new LinkedHashMap<>();
-
-    actions.put(
-        TradingPostViews.ACTION_TAB_BROWSE,
-        (audience, click) -> switchTab(audience, TradingPostSession.Screen.BROWSE));
-    actions.put(
-        TradingPostViews.ACTION_TAB_SELL,
-        (audience, click) -> switchTab(audience, TradingPostSession.Screen.SELL));
-    actions.put(
-        TradingPostViews.ACTION_TAB_BUY_ORDERS,
-        (audience, click) -> switchTab(audience, TradingPostSession.Screen.BUY_ORDERS));
-    actions.put(
-        TradingPostViews.ACTION_TAB_MY_ORDERS,
-        (audience, click) -> switchTab(audience, TradingPostSession.Screen.MY_ORDERS));
-    actions.put(
-        TradingPostViews.ACTION_TAB_MAILBOX,
-        (audience, click) -> switchTab(audience, TradingPostSession.Screen.MAILBOX));
-    actions.put(TradingPostViews.ACTION_PAGE_PREV, (audience, click) -> page(audience, -1));
-    actions.put(TradingPostViews.ACTION_PAGE_NEXT, (audience, click) -> page(audience, +1));
-
-    actions.put(TradingPostViews.ACTION_FILTER_HELD, (audience, click) -> filterHeld(audience));
-    actions.put(TradingPostViews.ACTION_FILTER_CLEAR, (audience, click) -> filterClear(audience));
-
-    for (int i = 0; i < TradingPostViews.MAILBOX_SLOTS; i++) {
-      final int index = i;
-      actions.put(
-          TradingPostViews.ACTION_LISTING_PREFIX + index,
-          (audience, click) -> listingClick(audience, index));
-    }
-
-    actions.put(TradingPostViews.ACTION_SELL_PRICE_DEC, (a, c) -> sellPrice(a, -1));
-    actions.put(TradingPostViews.ACTION_SELL_PRICE_INC, (a, c) -> sellPrice(a, +1));
-    actions.put(TradingPostViews.ACTION_SELL_QTY_DEC, (a, c) -> sellQty(a, -1));
-    actions.put(TradingPostViews.ACTION_SELL_QTY_INC, (a, c) -> sellQty(a, +1));
-    actions.put(TradingPostViews.ACTION_SELL_DURATION, (a, c) -> sellDuration(a));
-    actions.put(TradingPostViews.ACTION_SELL_LIST, (a, c) -> placeFromHand(a, false));
-    actions.put(TradingPostViews.ACTION_SELL_NOW, (a, c) -> placeFromHand(a, true));
-
-    actions.put(TradingPostViews.ACTION_BUY_PRICE_DEC, (a, c) -> buyPrice(a, -1));
-    actions.put(TradingPostViews.ACTION_BUY_PRICE_INC, (a, c) -> buyPrice(a, +1));
-    actions.put(TradingPostViews.ACTION_BUY_QTY_DEC, (a, c) -> buyQty(a, -1));
-    actions.put(TradingPostViews.ACTION_BUY_QTY_INC, (a, c) -> buyQty(a, +1));
-    actions.put(TradingPostViews.ACTION_BUY_DURATION, (a, c) -> buyDuration(a));
-    actions.put(TradingPostViews.ACTION_BUY_EXACT, (a, c) -> buyExact(a));
-    actions.put(TradingPostViews.ACTION_BUY_PLACE, (a, c) -> placeBuy(a));
-
-    actions.put(TradingPostViews.ACTION_DETAIL_QTY_DEC, (a, c) -> detailQty(a, -1));
-    actions.put(TradingPostViews.ACTION_DETAIL_QTY_INC, (a, c) -> detailQty(a, +1));
-    actions.put(TradingPostViews.ACTION_DETAIL_QTY_ALL, (a, c) -> detailQtyAll(a));
-    actions.put(TradingPostViews.ACTION_DETAIL_BUY, (a, c) -> confirmBuyNow(a, false));
-    actions.put(TradingPostViews.ACTION_DETAIL_BUY_ALL, (a, c) -> confirmBuyNow(a, true));
-    actions.put(
-        TradingPostViews.ACTION_DETAIL_BACK,
-        (a, c) -> switchTab(a, TradingPostSession.Screen.BROWSE));
-
-    return Map.copyOf(actions);
+    paint(inventory, session);
   }
 
   private void switchTab(UUID audience, TradingPostSession.Screen screen) {
@@ -904,7 +1020,7 @@ public final class TradingPostUi implements Listener {
   private void listingClick(UUID audience, int index) {
     Player player = Bukkit.getPlayer(audience);
     TradingPostSession session = sessions.get(audience);
-    if (player == null || session == null) {
+    if (player == null || session == null || index < 0) {
       return;
     }
     UUID target = session.slotIdAt(index);
@@ -915,7 +1031,9 @@ public final class TradingPostUi implements Listener {
       case BROWSE -> openDetail(player, session, target);
       case MY_ORDERS -> cancelOrder(player, session, target);
       case MAILBOX -> claimMailbox(player, session, target);
-      default -> {}
+      default -> {
+        // Listing clicks on other screens have no domain effect.
+      }
     }
   }
 
@@ -924,12 +1042,7 @@ public final class TradingPostUi implements Listener {
     session.detailBuyQuantity(1);
     session.screen(TradingPostSession.Screen.DETAIL);
     seedLoadingSnapshot(session);
-    if (craftux.isOpen(player.getUniqueId())) {
-      craftux.switchView(player.getUniqueId(), TradingPostViews.VIEW_DETAIL);
-    } else {
-      craftux.open(TradingPostViews.VIEW_DETAIL, player.getUniqueId());
-    }
-    refresh(player.getUniqueId());
+    show(player, session);
     loadDetail(player, session);
   }
 

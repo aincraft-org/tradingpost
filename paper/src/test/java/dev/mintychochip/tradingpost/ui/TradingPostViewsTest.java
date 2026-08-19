@@ -5,17 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.craftux.api.model.UiView;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** Drives real CraftUX view factories for every Trading Post screen. */
+/** Drives the shipped handwritten screen layouts for every Trading Post screen. */
 class TradingPostViewsTest {
 
   @Test
-  void allSixScreensBuildAsCraftuxInventoryViews() {
-    Map<String, UiView> views = TradingPostViews.all();
+  void allSixScreensBuildAsNativeInventoryLayouts() {
+    Map<String, TradingPostViews.ScreenLayout> views = TradingPostViews.all();
     assertEquals(6, views.size());
     assertTrue(views.containsKey(TradingPostViews.VIEW_BROWSE));
     assertTrue(views.containsKey(TradingPostViews.VIEW_SELL));
@@ -24,11 +23,12 @@ class TradingPostViewsTest {
     assertTrue(views.containsKey(TradingPostViews.VIEW_MAILBOX));
     assertTrue(views.containsKey(TradingPostViews.VIEW_DETAIL));
 
-    for (UiView view : views.values()) {
-      assertNotNull(view.inventory(), () -> view.name() + " must declare inventory");
-      assertFalse(view.inventory().slots().isEmpty(), () -> view.name() + " must declare slots");
+    for (TradingPostViews.ScreenLayout view : views.values()) {
+      assertNotNull(view.name(), () -> "layout must have a name");
+      assertTrue(view.size() > 0, () -> view.name() + " must have a chest size");
+      assertFalse(view.slots().isEmpty(), () -> view.name() + " must declare slots");
       assertTrue(
-          view.inventory().slots().stream().anyMatch(s -> s.actionId() != null),
+          view.slots().stream().anyMatch(s -> s.actionId() != null),
           () -> view.name() + " must declare at least one action slot");
     }
   }
@@ -68,5 +68,28 @@ class TradingPostViewsTest {
     assertTrue(declared.contains(TradingPostViews.ACTION_BUY_PLACE));
     assertTrue(declared.contains(TradingPostViews.ACTION_DETAIL_BUY));
     assertTrue(declared.contains(TradingPostViews.ACTION_LISTING_PREFIX + "0"));
+  }
+
+  @Test
+  void sellScreenWiresListAndSellNowSlots() {
+    TradingPostViews.ScreenLayout sell = TradingPostViews.sell();
+    assertTrue(hasAction(sell, TradingPostViews.ACTION_SELL_LIST));
+    assertTrue(hasAction(sell, TradingPostViews.ACTION_SELL_NOW));
+  }
+
+  @Test
+  void buyOrdersScreenWiresPlaceBuy() {
+    assertTrue(hasAction(TradingPostViews.buyOrders(), TradingPostViews.ACTION_BUY_PLACE));
+  }
+
+  @Test
+  void detailScreenWiresBuyNow() {
+    TradingPostViews.ScreenLayout detail = TradingPostViews.detail();
+    assertTrue(hasAction(detail, TradingPostViews.ACTION_DETAIL_BUY));
+    assertTrue(hasAction(detail, TradingPostViews.ACTION_DETAIL_BUY_ALL));
+  }
+
+  private static boolean hasAction(TradingPostViews.ScreenLayout layout, String actionId) {
+    return layout.slots().stream().anyMatch(slot -> actionId.equals(slot.actionId()));
   }
 }

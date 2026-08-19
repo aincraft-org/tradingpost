@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** Pure draft/clamp helpers used by the CraftUX host session. */
+/** Pure draft/clamp helpers used by the Trading Post host session. */
 class TradingPostSessionDraftTest {
 
   @Test
