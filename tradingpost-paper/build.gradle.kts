@@ -38,7 +38,7 @@ val mintPaperRuntime by configurations.creating {
 }
 
 dependencies {
-    api(project(":api"))
+    api(project(":tradingpost-api"))
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly(mintApi)
     compileOnly(mintPaper)
@@ -50,7 +50,7 @@ dependencies {
 
     add(mintPaperRuntime.name, mintPaper)
 
-    testImplementation(project(":api"))
+    testImplementation(project(":tradingpost-api"))
     testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation(mintApi)
     testImplementation(mintPaper)

@@ -17,4 +17,4 @@ jobs:
     with:
       gradle-tasks: test assemble
       release-files: |
-        paper/build/libs/*.jar
+        tradingpost-paper/build/libs/*.jar

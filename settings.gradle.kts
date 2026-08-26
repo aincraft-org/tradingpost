@@ -26,5 +26,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "tradingpost"
-include("api")
-include("paper")
+include("tradingpost-api")
+include("tradingpost-paper")

@@ -43,8 +43,8 @@ subprojects {
         apply(plugin = "com.github.spotbugs")
         apply(plugin = "com.diffplug.spotless")
 
-        val artifactBase = "tradingpost-$name"
-        val isPaper = name == "paper"
+        val artifactBase = name
+        val isPaper = name == "tradingpost-paper"
 
         extensions.configure<BasePluginExtension> {
             archivesName.set(artifactBase)
@@ -99,8 +99,8 @@ subprojects {
                         name.set(artifactBase)
                         description.set(
                             when (project.name) {
-                                "api" -> "TradingPost public integration contracts"
-                                "paper" -> "TradingPost Paper plugin"
+                                "tradingpost-api" -> "TradingPost public integration contracts"
+                                "tradingpost-paper" -> "TradingPost Paper plugin"
                                 else -> "TradingPost $artifactBase module"
                             },
                         )

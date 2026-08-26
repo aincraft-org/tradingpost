@@ -20,6 +20,9 @@ class CiTemplateHookupTest {
     assertTrue(
         text.contains("aincraft-org/ci-template/.github/workflows/paper.yml@"),
         "missing paper.yml uses in " + workflow);
+    assertTrue(
+        text.contains("tradingpost-paper/build/libs/*.jar"),
+        "release-files should target renamed plugin module in " + workflow);
   }
 
   @Test
@@ -45,7 +48,7 @@ class CiTemplateHookupTest {
             root.resolve("gradlew").toAbsolutePath().toString(),
             "--no-daemon",
             "-q",
-            ":api:generatePomFileForMavenPublication",
+            ":tradingpost-api:generatePomFileForMavenPublication",
             "-PreleaseVersion=" + RELEASE_VERSION);
     builder.directory(root.toFile());
     builder.redirectErrorStream(true);
@@ -54,6 +57,7 @@ class CiTemplateHookupTest {
     assertTrue(process.waitFor(5, TimeUnit.MINUTES), "gradlew timed out");
     assertEquals(0, process.exitValue(), output);
     String pom = Files.readString(Path.of(requiredProperty("ci.pom")));
+    assertTrue(pom.contains("<artifactId>tradingpost-api</artifactId>"), pom);
     assertTrue(pom.contains("<version>" + RELEASE_VERSION + "</version>"), pom);
     String build = Files.readString(root.resolve("build.gradle.kts"));
     assertTrue(build.contains("https://maven.pkg.github.com/$gprOwner/$gprRepo"), build);
