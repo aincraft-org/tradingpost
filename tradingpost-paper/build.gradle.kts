@@ -38,7 +38,7 @@ val mintPaperRuntime by configurations.creating {
 }
 
 dependencies {
-    api(project(":tradingpost-api"))
+    api(project(":tradingpost-common"))
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly(mintApi)
     compileOnly(mintPaper)
@@ -50,20 +50,10 @@ dependencies {
 
     add(mintPaperRuntime.name, mintPaper)
 
-    testImplementation(project(":tradingpost-api"))
     testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation(mintApi)
     testImplementation(mintPaper)
-    testImplementation("com.zaxxer:HikariCP:6.2.1")
-    testImplementation("org.postgresql:postgresql:42.7.5")
-    testImplementation("com.mysql:mysql-connector-j:9.3.0")
-    testImplementation("org.mariadb.jdbc:mariadb-java-client:3.5.3")
-    testImplementation("org.xerial:sqlite-jdbc:3.49.1.0")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
-    testImplementation("org.testcontainers:postgresql:1.21.4")
-    testImplementation("org.testcontainers:mysql:1.21.4")
-    testImplementation("org.testcontainers:mariadb:1.21.4")
-    testImplementation("org.testcontainers:junit-jupiter:1.21.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }
 
@@ -96,4 +86,10 @@ tasks.jar {
     archiveBaseName.set("tradingpost-paper")
     archiveVersion.set("")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(
+        project(":tradingpost-common").tasks.named("jar").map { zipTree(it.outputs.files.singleFile) },
+    )
+    from(
+        project(":tradingpost-api").tasks.named("jar").map { zipTree(it.outputs.files.singleFile) },
+    )
 }

@@ -16,7 +16,6 @@ public final class TradingPostClickRouter {
     TAB_SELL,
     TAB_BUY_ORDERS,
     TAB_MY_ORDERS,
-    TAB_MAILBOX,
     PAGE_PREV,
     PAGE_NEXT,
     FILTER_HELD,
@@ -51,7 +50,6 @@ public final class TradingPostClickRouter {
     PLACE_BUY,
     BUY_NOW,
     CANCEL,
-    CLAIM,
     FILTER,
     PAGE,
     TAB,
@@ -70,7 +68,6 @@ public final class TradingPostClickRouter {
       case TradingPostViews.ACTION_TAB_SELL -> Intent.TAB_SELL;
       case TradingPostViews.ACTION_TAB_BUY_ORDERS -> Intent.TAB_BUY_ORDERS;
       case TradingPostViews.ACTION_TAB_MY_ORDERS -> Intent.TAB_MY_ORDERS;
-      case TradingPostViews.ACTION_TAB_MAILBOX -> Intent.TAB_MAILBOX;
       case TradingPostViews.ACTION_PAGE_PREV -> Intent.PAGE_PREV;
       case TradingPostViews.ACTION_PAGE_NEXT -> Intent.PAGE_NEXT;
       case TradingPostViews.ACTION_FILTER_HELD -> Intent.FILTER_HELD;
@@ -110,13 +107,11 @@ public final class TradingPostClickRouter {
       case LISTING ->
           switch (screen) {
             case MY_ORDERS -> DomainHandler.CANCEL;
-            case MAILBOX -> DomainHandler.CLAIM;
             default -> DomainHandler.NONE;
           };
       case FILTER_HELD, FILTER_CLEAR -> DomainHandler.FILTER;
       case PAGE_PREV, PAGE_NEXT -> DomainHandler.PAGE;
-      case TAB_BROWSE, TAB_SELL, TAB_BUY_ORDERS, TAB_MY_ORDERS, TAB_MAILBOX, DETAIL_BACK ->
-          DomainHandler.TAB;
+      case TAB_BROWSE, TAB_SELL, TAB_BUY_ORDERS, TAB_MY_ORDERS, DETAIL_BACK -> DomainHandler.TAB;
       default -> DomainHandler.NONE;
     };
   }

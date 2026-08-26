@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Asserts every action id declared on handwritten screens is registered by the host, and that the
  * shipped click router maps list / sell-now / place-buy / buy-now / cancel / claim / filter /
- * pagination / tab actions to the real domain handlers.
+ * pagination / tab actions to the real domain handlers without a mailbox claim path.
  */
 class TradingPostActionWiringTest {
 
@@ -69,11 +69,6 @@ class TradingPostActionWiringTest {
             TradingPostClickRouter.intent(TradingPostViews.ACTION_LISTING_PREFIX + "0"),
             TradingPostSession.Screen.MY_ORDERS));
     assertEquals(
-        TradingPostClickRouter.DomainHandler.CLAIM,
-        TradingPostClickRouter.handler(
-            TradingPostClickRouter.intent(TradingPostViews.ACTION_LISTING_PREFIX + "3"),
-            TradingPostSession.Screen.MAILBOX));
-    assertEquals(
         TradingPostClickRouter.DomainHandler.FILTER,
         TradingPostClickRouter.handler(
             TradingPostClickRouter.intent(TradingPostViews.ACTION_FILTER_HELD),
@@ -86,17 +81,16 @@ class TradingPostActionWiringTest {
     assertEquals(
         TradingPostClickRouter.DomainHandler.TAB,
         TradingPostClickRouter.handler(
-            TradingPostClickRouter.intent(TradingPostViews.ACTION_TAB_MAILBOX),
+            TradingPostClickRouter.intent(TradingPostViews.ACTION_TAB_MY_ORDERS),
             TradingPostSession.Screen.BROWSE));
   }
 
   @Test
-  void listingClickOnBrowseDoesNotCancelOrClaim() {
+  void listingClickOnBrowseDoesNotCancel() {
     TradingPostClickRouter.DomainHandler handler =
         TradingPostClickRouter.handler(
             TradingPostClickRouter.intent(TradingPostViews.ACTION_LISTING_PREFIX + "1"),
             TradingPostSession.Screen.BROWSE);
     assertNotEquals(TradingPostClickRouter.DomainHandler.CANCEL, handler);
-    assertNotEquals(TradingPostClickRouter.DomainHandler.CLAIM, handler);
   }
 }

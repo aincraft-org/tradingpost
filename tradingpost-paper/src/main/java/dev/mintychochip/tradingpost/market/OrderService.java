@@ -1,13 +1,13 @@
 package dev.mintychochip.tradingpost.market;
 
+import dev.mintychochip.tradingpost.api.ItemDelivery;
+import dev.mintychochip.tradingpost.api.ItemDeliveryHandler;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
-import dev.mintychochip.tradingpost.db.MailboxRepository;
 import dev.mintychochip.tradingpost.db.OrderRepository;
 import dev.mintychochip.tradingpost.db.SellNowOperationRepository;
 import dev.mintychochip.tradingpost.db.SettlementRepository;
 import dev.mintychochip.tradingpost.domain.BuyOrder;
-import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.domain.OrderStatus;
 import dev.mintychochip.tradingpost.domain.SellNowOperation;
 import dev.mintychochip.tradingpost.domain.SellNowOperationState;
@@ -36,7 +36,7 @@ public final class OrderService {
   private final Database database;
   private final OrderRepository orders;
   private final SettlementRepository settlements;
-  private final MailboxRepository mailbox;
+  private final ItemDeliveryHandler deliveries;
   private final SettlementService settlementService;
   private final TradingPostConfig config;
   private final AsyncExecutor executor;
@@ -47,12 +47,13 @@ public final class OrderService {
       Database database,
       TradingPostConfig config,
       SettlementService settlementService,
+      ItemDeliveryHandler deliveries,
       AsyncExecutor executor) {
     this.plugin = Objects.requireNonNull(plugin, "plugin");
     this.database = Objects.requireNonNull(database, "database");
     this.orders = new OrderRepository(config);
     this.settlements = new SettlementRepository(config);
-    this.mailbox = new MailboxRepository(config);
+    this.deliveries = Objects.requireNonNull(deliveries, "deliveries");
     this.settlementService = Objects.requireNonNull(settlementService, "settlementService");
     this.config = Objects.requireNonNull(config, "config");
     this.executor = Objects.requireNonNull(executor, "executor");
@@ -369,21 +370,7 @@ public final class OrderService {
                       if (sell.isPresent()
                           && sell.get().seller().equals(player.getUniqueId())
                           && orders.cancelSell(connection, orderId, player.getUniqueId())) {
-                        if (sell.get().quantityRemaining() > 0) {
-                          mailbox.insert(
-                              connection,
-                              new MailboxItem(
-                                  UUID.randomUUID(),
-                                  sell.get().marketName(),
-                                  sell.get().seller(),
-                                  sell.get().itemBlob(),
-                                  sell.get().fingerprint(),
-                                  "ORDER_CANCELED",
-                                  "UNCLAIMED",
-                                  null,
-                                  Instant.now()));
-                        }
-                        return new Cancellation(null);
+                        return new Cancellation(null, sell.orElseThrow());
                       }
                       var buy = orders.findBuy(connection, orderId, true);
                       if (buy.isPresent()
@@ -400,13 +387,14 @@ public final class OrderService {
                                   null,
                                   orderId,
                                   buy.get().escrowReserved()));
-                          return new Cancellation(settlementId);
+                          return new Cancellation(settlementId, null);
                         }
-                        return new Cancellation(null);
+                        return new Cancellation(null, null);
                       }
                       throw new IllegalStateException(
                           "order is not cancellable or is not owned by player");
                     }))
+        .thenCompose(this::deliverCanceledSell)
         .thenCompose(
             cancellation ->
                 cancellation.settlementId() == null
@@ -421,7 +409,33 @@ public final class OrderService {
             failure -> OrderResult.rejected("could not cancel order: " + failure.getMessage()));
   }
 
-  private record Cancellation(UUID settlementId) {}
+  private CompletionStage<Cancellation> deliverCanceledSell(Cancellation cancellation) {
+    SellOrder sell = cancellation.sell();
+    if (sell == null || sell.quantityRemaining() < 1) {
+      return CompletableFuture.completedFuture(cancellation);
+    }
+    return deliveries
+        .deliver(
+            new ItemDelivery(
+                sell.id(),
+                sell.seller(),
+                sell.marketName(),
+                sell.itemBlob(),
+                sell.fingerprint(),
+                ItemDelivery.ORDER_CANCELED))
+        .thenCompose(
+            ignored ->
+                executor.submit(
+                    () ->
+                        database.transaction(
+                            connection -> {
+                              orders.clearRemaining(connection, sell.id());
+                              return cancellation;
+                            })))
+        .exceptionally(failure -> cancellation);
+  }
+
+  private record Cancellation(UUID settlementId, SellOrder sell) {}
 
   private record PersistResult(UUID feeSettlementId, List<UUID> matchSettlementIds) {
     private PersistResult {

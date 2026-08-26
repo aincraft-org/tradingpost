@@ -2,14 +2,15 @@ package dev.mintychochip.tradingpost;
 
 import dev.mintychochip.mint.api.service.MintClientLease;
 import dev.mintychochip.mint.api.service.MintClientReceiver;
+import dev.mintychochip.tradingpost.api.ItemDeliveryHandler;
 import dev.mintychochip.tradingpost.command.TradingPostCommands;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
+import dev.mintychochip.tradingpost.config.TradingPostConfigLoader;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.db.MigrationRunner;
 import dev.mintychochip.tradingpost.db.SqlDialect;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
 import dev.mintychochip.tradingpost.lifecycle.PluginState;
-import dev.mintychochip.tradingpost.mailbox.MailboxService;
 import dev.mintychochip.tradingpost.market.OrderService;
 import dev.mintychochip.tradingpost.mint.MintGateway;
 import dev.mintychochip.tradingpost.post.TradingPostListener;
@@ -34,7 +35,6 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
   private TradingPostMenu menu;
   private SettlementService settlementService;
   private OrderService orderService;
-  private MailboxService mailboxService;
   private final AtomicBoolean persistenceReady = new AtomicBoolean();
   private final AtomicBoolean initializing = new AtomicBoolean();
   private volatile Throwable startupFailure;
@@ -44,7 +44,7 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
   public void onEnable() {
     saveDefaultConfig();
     try {
-      configuration = TradingPostConfig.load(getConfig());
+      configuration = TradingPostConfigLoader.load(getConfig());
       executor = new AsyncExecutor(32);
       mint = new MintGateway(configuration);
       Bukkit.getServicesManager()
@@ -102,7 +102,8 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
       failEnable(startupFailure);
       return;
     }
-    if (!persistenceReady.get() || !mint.ready()) {
+    ItemDeliveryHandler deliveries = Bukkit.getServicesManager().load(ItemDeliveryHandler.class);
+    if (!persistenceReady.get() || !mint.ready() || deliveries == null) {
       initializing.set(false);
       return;
     }
@@ -128,21 +129,26 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
                                     : failure);
                             return;
                           }
+                          ItemDeliveryHandler bound =
+                              Bukkit.getServicesManager().load(ItemDeliveryHandler.class);
+                          if (bound == null) {
+                            return;
+                          }
                           state = PluginState.READY;
                           if (readinessTask >= 0) {
                             Bukkit.getScheduler().cancelTask(readinessTask);
                             readinessTask = -1;
                           }
-                          initializeInterface();
+                          initializeInterface(bound);
                           getLogger().info("TradingPost is READY");
                         }));
   }
 
-  private void initializeInterface() {
-    settlementService = new SettlementService(database, configuration, mint, executor);
-    orderService = new OrderService(this, database, configuration, settlementService, executor);
+  private void initializeInterface(ItemDeliveryHandler deliveries) {
+    settlementService = new SettlementService(database, configuration, mint, deliveries, executor);
+    orderService =
+        new OrderService(this, database, configuration, settlementService, deliveries, executor);
     var dialect = SqlDialect.from(configuration);
-    mailboxService = new MailboxService(this, database, dialect, executor);
     registry = new TradingPostRegistry(database, dialect, executor, this);
     SettlementRecoveryWorker recovery =
         new SettlementRecoveryWorker(
@@ -156,12 +162,12 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
             database,
             dialect,
             settlementService,
+            deliveries,
             executor,
             configuration.maxSellOrders() + configuration.maxBuyOrders());
     ReconciliationWorker reconciliation =
         new ReconciliationWorker(database, dialect, mint, executor);
-    menu =
-        new TradingPostMenu(this, database, configuration, orderService, mailboxService, executor);
+    menu = new TradingPostMenu(this, database, configuration, orderService, executor);
     registry
         .load()
         .whenComplete(

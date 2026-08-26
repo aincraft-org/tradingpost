@@ -19,12 +19,10 @@ public final class TradingPostViews {
   public static final String VIEW_SELL = "tp_sell";
   public static final String VIEW_BUY_ORDERS = "tp_buy_orders";
   public static final String VIEW_MY_ORDERS = "tp_my_orders";
-  public static final String VIEW_MAILBOX = "tp_mailbox";
   public static final String VIEW_DETAIL = "tp_detail";
 
   public static final int LISTING_SLOTS = 36;
   public static final int MY_ORDER_SLOTS = 44;
-  public static final int MAILBOX_SLOTS = 45;
   public static final int CHEST_SIZE = 54;
   public static final int DETAIL_SIZE = 27;
 
@@ -32,7 +30,6 @@ public final class TradingPostViews {
   public static final String ACTION_TAB_SELL = "tp.tab.sell";
   public static final String ACTION_TAB_BUY_ORDERS = "tp.tab.buy_orders";
   public static final String ACTION_TAB_MY_ORDERS = "tp.tab.my_orders";
-  public static final String ACTION_TAB_MAILBOX = "tp.tab.mailbox";
   public static final String ACTION_PAGE_PREV = "tp.page.prev";
   public static final String ACTION_PAGE_NEXT = "tp.page.next";
 
@@ -98,7 +95,7 @@ public final class TradingPostViews {
   public static Map<String, ScreenLayout> all() {
     Map<String, ScreenLayout> views = new LinkedHashMap<>();
     for (ScreenLayout view :
-        new ScreenLayout[] {browse(), sell(), buyOrders(), myOrders(), mailbox(), detail()}) {
+        new ScreenLayout[] {browse(), sell(), buyOrders(), myOrders(), detail()}) {
       views.put(view.name(), view);
     }
     return Map.copyOf(views);
@@ -221,21 +218,6 @@ public final class TradingPostViews {
     return new ScreenLayout(VIEW_MY_ORDERS, CHEST_SIZE, "Trading Post", slots);
   }
 
-  public static ScreenLayout mailbox() {
-    List<Slot> slots = new ArrayList<>();
-    for (int i = 0; i < MAILBOX_SLOTS; i++) {
-      slots.add(
-          new Slot(
-              i,
-              "minecraft:gray_stained_glass_pane",
-              " ",
-              ACTION_LISTING_PREFIX + i,
-              "listings.s" + i));
-    }
-    fillNav(slots);
-    return new ScreenLayout(VIEW_MAILBOX, CHEST_SIZE, "Trading Post", slots);
-  }
-
   public static ScreenLayout detail() {
     List<Slot> slots = new ArrayList<>();
     slots.add(new Slot(11, "minecraft:gray_stained_glass_pane", "—", null, "detail.preview"));
@@ -275,7 +257,6 @@ public final class TradingPostViews {
       case SELL -> VIEW_SELL;
       case BUY_ORDERS -> VIEW_BUY_ORDERS;
       case MY_ORDERS -> VIEW_MY_ORDERS;
-      case MAILBOX -> VIEW_MAILBOX;
       case DETAIL -> VIEW_DETAIL;
     };
   }
@@ -286,7 +267,6 @@ public final class TradingPostViews {
       case SELL -> sell();
       case BUY_ORDERS -> buyOrders();
       case MY_ORDERS -> myOrders();
-      case MAILBOX -> mailbox();
       case DETAIL -> detail();
     };
   }
@@ -296,7 +276,6 @@ public final class TradingPostViews {
     slots.add(new Slot(46, "minecraft:chest", "Sell", ACTION_TAB_SELL, null));
     slots.add(new Slot(47, "minecraft:paper", "Buy Orders", ACTION_TAB_BUY_ORDERS, null));
     slots.add(new Slot(48, "minecraft:writable_book", "My Orders", ACTION_TAB_MY_ORDERS, null));
-    slots.add(new Slot(49, "minecraft:ender_chest", "Mailbox", ACTION_TAB_MAILBOX, null));
     slots.add(new Slot(50, "minecraft:arrow", "Previous page", ACTION_PAGE_PREV, null));
     slots.add(new Slot(51, "minecraft:spectral_arrow", "Next page", ACTION_PAGE_NEXT, null));
   }

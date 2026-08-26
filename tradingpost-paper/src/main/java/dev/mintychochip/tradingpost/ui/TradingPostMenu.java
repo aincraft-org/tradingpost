@@ -3,7 +3,6 @@ package dev.mintychochip.tradingpost.ui;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
-import dev.mintychochip.tradingpost.mailbox.MailboxService;
 import dev.mintychochip.tradingpost.market.OrderService;
 import java.util.Objects;
 import org.bukkit.entity.Player;
@@ -23,7 +22,6 @@ public final class TradingPostMenu implements Listener {
       Database database,
       TradingPostConfig config,
       OrderService orderService,
-      MailboxService mailboxService,
       AsyncExecutor executor) {
     this.ui =
         new TradingPostUi(
@@ -31,7 +29,6 @@ public final class TradingPostMenu implements Listener {
             Objects.requireNonNull(database, "database"),
             Objects.requireNonNull(config, "config"),
             Objects.requireNonNull(orderService, "orderService"),
-            Objects.requireNonNull(mailboxService, "mailboxService"),
             Objects.requireNonNull(executor, "executor"));
   }
 

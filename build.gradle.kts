@@ -100,6 +100,7 @@ subprojects {
                         description.set(
                             when (project.name) {
                                 "tradingpost-api" -> "TradingPost public integration contracts"
+                                "tradingpost-common" -> "TradingPost Bukkit-free engine"
                                 "tradingpost-paper" -> "TradingPost Paper plugin"
                                 else -> "TradingPost $artifactBase module"
                             },

@@ -2,15 +2,12 @@ package dev.mintychochip.tradingpost.ui;
 
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.db.Database;
-import dev.mintychochip.tradingpost.db.MailboxRepository;
 import dev.mintychochip.tradingpost.db.OrderRepository;
 import dev.mintychochip.tradingpost.domain.BuyOrder;
-import dev.mintychochip.tradingpost.domain.MailboxItem;
 import dev.mintychochip.tradingpost.domain.OrderStatus;
 import dev.mintychochip.tradingpost.domain.SellOrder;
 import dev.mintychochip.tradingpost.items.ItemCodec;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
-import dev.mintychochip.tradingpost.mailbox.MailboxService;
 import dev.mintychochip.tradingpost.market.OrderService;
 import dev.mintychochip.tradingpost.money.MoneyMath;
 import java.math.BigDecimal;
@@ -50,11 +47,9 @@ public final class TradingPostUi implements Listener {
   private final Plugin plugin;
   private final Database database;
   private final OrderRepository orders;
-  private final MailboxRepository mailbox;
   private final TradingPostConfig config;
   private final AsyncExecutor executor;
   private final OrderService orderService;
-  private final MailboxService mailboxService;
 
   private final Map<UUID, TradingPostSession> sessions = new ConcurrentHashMap<>();
   private final Map<UUID, Map<String, Object>> providerSnapshots = new ConcurrentHashMap<>();
@@ -66,16 +61,13 @@ public final class TradingPostUi implements Listener {
       Database database,
       TradingPostConfig config,
       OrderService orderService,
-      MailboxService mailboxService,
       AsyncExecutor executor) {
     this.plugin = Objects.requireNonNull(plugin, "plugin");
     this.database = Objects.requireNonNull(database, "database");
     this.config = Objects.requireNonNull(config, "config");
     this.orderService = Objects.requireNonNull(orderService, "orderService");
-    this.mailboxService = Objects.requireNonNull(mailboxService, "mailboxService");
     this.executor = Objects.requireNonNull(executor, "executor");
     this.orders = new OrderRepository(config);
-    this.mailbox = new MailboxRepository(config);
   }
 
   /**
@@ -88,12 +80,11 @@ public final class TradingPostUi implements Listener {
     ids.put(TradingPostViews.ACTION_TAB_SELL, true);
     ids.put(TradingPostViews.ACTION_TAB_BUY_ORDERS, true);
     ids.put(TradingPostViews.ACTION_TAB_MY_ORDERS, true);
-    ids.put(TradingPostViews.ACTION_TAB_MAILBOX, true);
     ids.put(TradingPostViews.ACTION_PAGE_PREV, true);
     ids.put(TradingPostViews.ACTION_PAGE_NEXT, true);
     ids.put(TradingPostViews.ACTION_FILTER_HELD, true);
     ids.put(TradingPostViews.ACTION_FILTER_CLEAR, true);
-    for (int i = 0; i < TradingPostViews.MAILBOX_SLOTS; i++) {
+    for (int i = 0; i < TradingPostViews.MY_ORDER_SLOTS; i++) {
       ids.put(TradingPostViews.ACTION_LISTING_PREFIX + i, true);
     }
     ids.put(TradingPostViews.ACTION_SELL_PRICE_DEC, true);
@@ -250,7 +241,6 @@ public final class TradingPostUi implements Listener {
       case TAB_SELL -> switchTab(audience, TradingPostSession.Screen.SELL);
       case TAB_BUY_ORDERS -> switchTab(audience, TradingPostSession.Screen.BUY_ORDERS);
       case TAB_MY_ORDERS -> switchTab(audience, TradingPostSession.Screen.MY_ORDERS);
-      case TAB_MAILBOX -> switchTab(audience, TradingPostSession.Screen.MAILBOX);
       case PAGE_PREV -> page(audience, -1);
       case PAGE_NEXT -> page(audience, +1);
       case FILTER_HELD -> filterHeld(audience);
@@ -424,7 +414,6 @@ public final class TradingPostUi implements Listener {
 
   private static int listingCapacity(TradingPostSession.Screen screen) {
     return switch (screen) {
-      case MAILBOX -> TradingPostViews.MAILBOX_SLOTS;
       case MY_ORDERS -> TradingPostViews.MY_ORDER_SLOTS;
       case DETAIL -> 0;
       default -> TradingPostViews.LISTING_SLOTS;
@@ -514,7 +503,6 @@ public final class TradingPostUi implements Listener {
       case SELL -> renderSell(player, session);
       case BUY_ORDERS -> loadBuyOrders(player, session);
       case MY_ORDERS -> loadMyOrders(player, session);
-      case MAILBOX -> loadMailbox(player, session);
       case DETAIL -> loadDetail(player, session);
     }
   }
@@ -665,49 +653,6 @@ public final class TradingPostUi implements Listener {
                           while (slot < TradingPostViews.MY_ORDER_SLOTS) {
                             listings.put("s" + slot, emptySlot(" "));
                             slot++;
-                          }
-                          session.setSlotIds(ids);
-                          Map<String, Object> root = baseRoot(session);
-                          root.put("listings", listings);
-                          putSellDefaults(root, session);
-                          putBuyDefaults(root, session);
-                          putDetailDefaults(root);
-                          providerSnapshots.put(session.playerId(), root);
-                          refresh(session.playerId());
-                        }));
-  }
-
-  private void loadMailbox(Player player, TradingPostSession session) {
-    executor
-        .submit(
-            () ->
-                database.transaction(
-                    connection ->
-                        mailbox.list(connection, player.getUniqueId(), session.marketName())))
-        .whenComplete(
-            (items, failure) ->
-                Bukkit.getScheduler()
-                    .runTask(
-                        plugin,
-                        () -> {
-                          if (!stillOn(player, session, TradingPostSession.Screen.MAILBOX)) {
-                            return;
-                          }
-                          if (failure != null) {
-                            player.sendMessage(
-                                Component.text("Trading Post is temporarily unavailable."));
-                            return;
-                          }
-                          List<UUID> ids = new ArrayList<>();
-                          Map<String, Object> listings = new LinkedHashMap<>();
-                          for (int i = 0; i < TradingPostViews.MAILBOX_SLOTS; i++) {
-                            if (i < items.size()) {
-                              MailboxItem row = items.get(i);
-                              ids.add(row.id());
-                              listings.put("s" + i, listingFromMailbox(row));
-                            } else {
-                              listings.put("s" + i, emptySlot(" "));
-                            }
                           }
                           session.setSlotIds(ids);
                           Map<String, Object> root = baseRoot(session);
@@ -1030,7 +975,6 @@ public final class TradingPostUi implements Listener {
     switch (session.screen()) {
       case BROWSE -> openDetail(player, session, target);
       case MY_ORDERS -> cancelOrder(player, session, target);
-      case MAILBOX -> claimMailbox(player, session, target);
       default -> {
         // Listing clicks on other screens have no domain effect.
       }
@@ -1067,29 +1011,6 @@ public final class TradingPostUi implements Listener {
                           }
                           open(
                               player, session.marketName(), TradingPostSession.Screen.MY_ORDERS, 0);
-                        }));
-  }
-
-  private void claimMailbox(Player player, TradingPostSession session, UUID mailboxId) {
-    mailboxService
-        .claim(player, mailboxId)
-        .whenComplete(
-            (result, failure) ->
-                Bukkit.getScheduler()
-                    .runTask(
-                        plugin,
-                        () -> {
-                          if (failure != null || !result.claimed()) {
-                            player.sendMessage(
-                                Component.text(
-                                    "Claim failed: "
-                                        + (failure == null
-                                            ? result.message()
-                                            : failure.getMessage())));
-                          } else {
-                            player.sendMessage(Component.text(result.message()));
-                          }
-                          open(player, session.marketName(), TradingPostSession.Screen.MAILBOX, 0);
                         }));
   }
 
@@ -1158,7 +1079,7 @@ public final class TradingPostUi implements Listener {
                             Component.text(
                                 result.message()
                                     + (sellNow
-                                        ? " Unmatched remainder goes to Mailbox."
+                                        ? " Unmatched remainder will be delivered."
                                         : " Listed on the market.")));
                         open(player, session.marketName(), TradingPostSession.Screen.MY_ORDERS, 0);
                       }
@@ -1377,7 +1298,7 @@ public final class TradingPostUi implements Listener {
                                                               + ask.unitPrice().toPlainString()
                                                               + " (escrow "
                                                               + total.toPlainString()
-                                                              + "). Check Mailbox for items."));
+                                                              + "). Items will be delivered."));
                                                   close(player);
                                                 }
                                               }));
@@ -1431,7 +1352,7 @@ public final class TradingPostUi implements Listener {
         shortMaterial(sell.material()),
         "SELL · " + sell.status().name() + " · " + sell.mode().name(),
         "Price: " + sell.unitPrice().toPlainString() + " · left " + sell.quantityRemaining(),
-        "Click to cancel → mailbox remainder");
+        "Click to cancel");
   }
 
   private static Map<String, Object> listingFromMyBuy(BuyOrder buy) {
@@ -1442,22 +1363,6 @@ public final class TradingPostUi implements Listener {
         buy.status().name(),
         "Max: " + buy.unitPrice().toPlainString() + " · left " + buy.quantityRemaining(),
         "Escrow left: " + buy.escrowReserved().toPlainString());
-  }
-
-  private static Map<String, Object> listingFromMailbox(MailboxItem row) {
-    String material = "minecraft:chest";
-    String label = "Mailbox item";
-    try {
-      ItemStack decoded = ItemCodec.decode(row.itemBlob());
-      if (decoded != null && !decoded.getType().isAir()) {
-        material = materialKey(decoded.getType().getKey().toString());
-        label = decoded.getType().getKey().getKey();
-      }
-    } catch (RuntimeException ignored) {
-      // Fall back to chest placeholder when blob cannot be decoded offline.
-    }
-    return itemMap(
-        material, 1, label, "Reason: " + row.reason(), "Click to claim into inventory", " ");
   }
 
   private static Map<String, Object> emptyListings(int count) {

@@ -184,7 +184,6 @@ public final class TradingPostSession {
     SELL,
     BUY_ORDERS,
     MY_ORDERS,
-    MAILBOX,
     DETAIL
   }
 }

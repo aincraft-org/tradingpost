@@ -18,7 +18,7 @@ class TradingPostConfigEngineTest {
     "sqlite,jdbc:sqlite:plugins/TradingPost/tradingpost.db"
   })
   void loadAcceptsEachEngineAndKeepsConnectionTarget(String engine, String jdbcUrl) {
-    TradingPostConfig loaded = TradingPostConfig.load(yaml(engine, jdbcUrl));
+    TradingPostConfig loaded = TradingPostConfigLoader.load(yaml(engine, jdbcUrl));
     assertEquals(DatabaseEngine.parse(engine), loaded.engine());
     assertEquals(jdbcUrl, loaded.jdbcUrl());
     assertEquals("tradingpost", loaded.schema());
@@ -27,13 +27,15 @@ class TradingPostConfigEngineTest {
 
   @Test
   void blankEngineIsRejected() {
-    assertThrows(IllegalArgumentException.class, () -> TradingPostConfig.load(yaml("", "jdbc:x")));
+    assertThrows(
+        IllegalArgumentException.class, () -> TradingPostConfigLoader.load(yaml("", "jdbc:x")));
   }
 
   @Test
   void unknownEngineIsRejected() {
     assertThrows(
-        IllegalArgumentException.class, () -> TradingPostConfig.load(yaml("oracle", "jdbc:x")));
+        IllegalArgumentException.class,
+        () -> TradingPostConfigLoader.load(yaml("oracle", "jdbc:x")));
   }
 
   private static YamlConfiguration yaml(String engine, String jdbcUrl) {
