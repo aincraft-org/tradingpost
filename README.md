@@ -62,7 +62,7 @@ To publish to GitHub Packages, set `GITHUB_ACTOR` and `GITHUB_TOKEN`, or pass `-
 | Command | Description | Permission |
 |---------|-------------|------------|
 | `/post [market]` | Open the nearby villager Trading Post | `tradingpost.use` |
-| `/postadmin <market\|post> ...` | Manage Trading Post markets and posts | `tradingpost.admin` |
+| `/postadmin <market|post> ...` | Manage Trading Post markets and posts | `tradingpost.admin` |
 
 ## Permissions
 
