@@ -23,6 +23,7 @@ public final class TradingPostSession {
   private int draftQuantity = 1;
   private int durationIndex;
   private boolean exactMatch;
+  private String searchQuery;
   private String materialFilter;
   private final List<UUID> slotIds = new ArrayList<>();
   private UUID detailOrderId;
@@ -113,6 +114,18 @@ public final class TradingPostSession {
 
   public void toggleExactMatch() {
     exactMatch = !exactMatch;
+  }
+
+  public String searchQuery() {
+    return searchQuery;
+  }
+
+  public void searchQuery(String searchQuery) {
+    if (searchQuery == null || searchQuery.isBlank()) {
+      this.searchQuery = null;
+    } else {
+      this.searchQuery = searchQuery.trim();
+    }
   }
 
   public String materialFilter() {

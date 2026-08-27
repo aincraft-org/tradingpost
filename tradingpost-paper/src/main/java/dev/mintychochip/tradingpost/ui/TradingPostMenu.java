@@ -41,6 +41,14 @@ public final class TradingPostMenu implements Listener {
     ui.open(player, marketName);
   }
 
+  public void setSearchQuery(Player player, String query) {
+    ui.setSearchQuery(player, query);
+  }
+
+  public void clearSearch(Player player) {
+    ui.clearSearch(player);
+  }
+
   public void open(Player player, String marketName, TradingPostSession.Screen screen, int page) {
     ui.open(player, marketName, screen, page);
   }

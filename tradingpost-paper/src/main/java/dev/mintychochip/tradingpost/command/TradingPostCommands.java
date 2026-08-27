@@ -1,5 +1,7 @@
 package dev.mintychochip.tradingpost.command;
 
+import dev.mintychochip.tradingpost.api.Territory;
+import dev.mintychochip.tradingpost.api.TerritoryRegistry;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.post.TradingPostRegistry;
 import dev.mintychochip.tradingpost.ui.TradingPostMenu;
@@ -18,6 +20,7 @@ import org.bukkit.util.RayTraceResult;
 public final class TradingPostCommands implements CommandExecutor {
   private final JavaPlugin plugin;
   private final TradingPostRegistry registry;
+  private final TerritoryRegistry territories;
   private final TradingPostMenu menu;
   private final TradingPostConfig config;
   private final boolean ready;
@@ -25,14 +28,24 @@ public final class TradingPostCommands implements CommandExecutor {
   public TradingPostCommands(
       JavaPlugin plugin,
       TradingPostRegistry registry,
+      TerritoryRegistry territories,
       TradingPostMenu menu,
       TradingPostConfig config,
       boolean ready) {
     this.plugin = Objects.requireNonNull(plugin, "plugin");
     this.registry = Objects.requireNonNull(registry, "registry");
+    this.territories = Objects.requireNonNull(territories, "territories");
     this.menu = Objects.requireNonNull(menu, "menu");
     this.config = Objects.requireNonNull(config, "config");
     this.ready = ready;
+  }
+
+  public boolean runPost(CommandSender sender, String[] args) {
+    return handleAh(sender, args);
+  }
+
+  public boolean runAdmin(CommandSender sender, String[] args) {
+    return handleAdmin(sender, args);
   }
 
   public void register() {
@@ -71,21 +84,87 @@ public final class TradingPostCommands implements CommandExecutor {
       return true;
     }
     int radius = config.postRadius();
+    Optional<Territory> territory =
+        territories.findAt(
+            player.getWorld().getName(),
+            player.getLocation().getBlockX(),
+            player.getLocation().getBlockY(),
+            player.getLocation().getBlockZ());
     if (args.length == 0) {
+      if (territory.isPresent()) {
+        menu.open(player, territory.get().marketName());
+        return true;
+      }
       Optional<TradingPostRegistry.MarketContext> nearest =
           registry.nearestWithin(player.getLocation(), radius);
       if (nearest.isEmpty()) {
-        sender.sendMessage("You must be within " + radius + " blocks of a Trading Post villager.");
+        sender.sendMessage(
+            "You must be in a registered territory or near a Trading Post villager.");
         return true;
       }
       menu.open(player, nearest.get().marketName());
       return true;
     }
+    // /post search <query> — hybrid search (portable LIKE on material, keeps exact filter)
+    if (args[0].equalsIgnoreCase("search")) {
+      String query =
+          args.length == 1
+              ? null
+              : String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length)).trim();
+      if (query != null
+          && (query.isEmpty() || query.equals("*") || query.equalsIgnoreCase("clear")))
+        query = null;
+      String marketName;
+      if (territory.isPresent()) {
+        marketName = territory.get().marketName();
+      } else {
+        Optional<TradingPostRegistry.MarketContext> nearest =
+            registry.nearestWithin(player.getLocation(), radius);
+        if (nearest.isEmpty()) {
+          sender.sendMessage(
+              "You must be in a registered territory or near a Trading Post villager.");
+          return true;
+        }
+        marketName = nearest.get().marketName();
+      }
+      menu.open(player, marketName);
+      if (query == null) {
+        menu.clearSearch(player);
+      } else {
+        if (query.length() > 64) query = query.substring(0, 64);
+        menu.setSearchQuery(player, query);
+      }
+      return true;
+    }
+    if (args[0].equalsIgnoreCase("clear")) {
+      String marketName;
+      if (territory.isPresent()) {
+        marketName = territory.get().marketName();
+      } else {
+        Optional<TradingPostRegistry.MarketContext> nearest =
+            registry.nearestWithin(player.getLocation(), radius);
+        if (nearest.isEmpty()) {
+          sender.sendMessage(
+              "You must be in a registered territory or near a Trading Post villager.");
+          return true;
+        }
+        marketName = nearest.get().marketName();
+      }
+      menu.open(player, marketName);
+      menu.clearSearch(player);
+      return true;
+    }
     String market = args[0];
-    if (!registry.canAccess(player.getLocation(), market, radius)
+    boolean inTerritory = territory.map(value -> value.marketName().equals(market)).orElse(false);
+    if (!inTerritory
+        && !registry.canAccess(player.getLocation(), market, radius)
         && !player.hasPermission("tradingpost.admin")) {
       sender.sendMessage(
-          "You must be within " + radius + " blocks of the villager for market '" + market + "'.");
+          "You must be in territory '"
+              + market
+              + "' or within "
+              + radius
+              + " blocks of its villager.");
       return true;
     }
     menu.open(player, market);

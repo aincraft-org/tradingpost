@@ -3,6 +3,8 @@ package dev.mintychochip.tradingpost;
 import dev.mintychochip.mint.api.service.MintClientLease;
 import dev.mintychochip.mint.api.service.MintClientReceiver;
 import dev.mintychochip.tradingpost.api.ItemDeliveryHandler;
+import dev.mintychochip.tradingpost.api.Territory;
+import dev.mintychochip.tradingpost.api.TerritoryRegistry;
 import dev.mintychochip.tradingpost.command.TradingPostCommands;
 import dev.mintychochip.tradingpost.config.TradingPostConfig;
 import dev.mintychochip.tradingpost.config.TradingPostConfigLoader;
@@ -20,21 +22,25 @@ import dev.mintychochip.tradingpost.settlement.ReconciliationWorker;
 import dev.mintychochip.tradingpost.settlement.SettlementRecoveryWorker;
 import dev.mintychochip.tradingpost.settlement.SettlementService;
 import dev.mintychochip.tradingpost.ui.TradingPostMenu;
+import io.papermc.paper.command.brigadier.BasicCommand;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public final class TradingPostPlugin extends JavaPlugin implements MintClientReceiver {
+public final class TradingPostPlugin extends JavaPlugin {
   private volatile PluginState state = PluginState.STARTING;
   private TradingPostConfig configuration;
   private AsyncExecutor executor;
   private volatile Database database;
   private MintGateway mint;
+  private MintClientReceiver mintClientReceiver;
   private TradingPostRegistry registry;
   private TradingPostMenu menu;
   private SettlementService settlementService;
   private OrderService orderService;
+  private volatile TradingPostCommands commandHandler;
   private final AtomicBoolean persistenceReady = new AtomicBoolean();
   private final AtomicBoolean initializing = new AtomicBoolean();
   private volatile Throwable startupFailure;
@@ -47,8 +53,15 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
       configuration = TradingPostConfigLoader.load(getConfig());
       executor = new AsyncExecutor(32);
       mint = new MintGateway(configuration);
+      mintClientReceiver =
+          lease -> {
+            if (mint == null) {
+              throw new IllegalStateException("TradingPost is not initialized");
+            }
+            mint.bindMintClient(lease);
+          };
       Bukkit.getServicesManager()
-          .register(MintClientReceiver.class, this, this, ServicePriority.Normal);
+          .register(MintClientReceiver.class, mintClientReceiver, this, ServicePriority.Normal);
     } catch (RuntimeException failure) {
       failEnable(failure);
       return;
@@ -81,11 +94,62 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
                             persistenceReady.set(true);
                           }
                         }));
+
+    getLifecycleManager()
+        .registerEventHandler(
+            LifecycleEvents.COMMANDS,
+            event -> {
+              event
+                  .registrar()
+                  .register(
+                      "post",
+                      new BasicCommand() {
+                        @Override
+                        public void execute(
+                            io.papermc.paper.command.brigadier.CommandSourceStack stack,
+                            String[] args) {
+                          TradingPostCommands handler = commandHandler;
+                          if (handler == null) {
+                            stack.getSender().sendMessage("TradingPost is still starting.");
+                            return;
+                          }
+                          handler.runPost(stack.getSender(), args);
+                        }
+
+                        @Override
+                        public String permission() {
+                          return "tradingpost.use";
+                        }
+                      });
+              event
+                  .registrar()
+                  .register(
+                      "postadmin",
+                      new BasicCommand() {
+                        @Override
+                        public void execute(
+                            io.papermc.paper.command.brigadier.CommandSourceStack stack,
+                            String[] args) {
+                          TradingPostCommands handler = commandHandler;
+                          if (handler == null) {
+                            stack.getSender().sendMessage("TradingPost is still starting.");
+                            return;
+                          }
+                          handler.runAdmin(stack.getSender(), args);
+                        }
+
+                        @Override
+                        public String permission() {
+                          return "tradingpost.admin";
+                        }
+                      });
+            });
+
     readinessTask = Bukkit.getScheduler().runTaskTimer(this, this::tryReady, 1L, 20L).getTaskId();
     getLogger().info("TradingPost is STARTING while PostgreSQL and Mint become ready");
   }
 
-  @Override
+  /** Mint calls this through the registered {@link MintClientReceiver} service binding. */
   public void bindMintClient(MintClientLease lease) {
     if (mint == null) {
       throw new IllegalStateException("TradingPost is not initialized");
@@ -103,7 +167,8 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
       return;
     }
     ItemDeliveryHandler deliveries = Bukkit.getServicesManager().load(ItemDeliveryHandler.class);
-    if (!persistenceReady.get() || !mint.ready() || deliveries == null) {
+    TerritoryRegistry territories = Bukkit.getServicesManager().load(TerritoryRegistry.class);
+    if (!persistenceReady.get() || !mint.ready() || deliveries == null || territories == null) {
       initializing.set(false);
       return;
     }
@@ -131,7 +196,9 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
                           }
                           ItemDeliveryHandler bound =
                               Bukkit.getServicesManager().load(ItemDeliveryHandler.class);
-                          if (bound == null) {
+                          TerritoryRegistry boundTerritories =
+                              Bukkit.getServicesManager().load(TerritoryRegistry.class);
+                          if (bound == null || boundTerritories == null) {
                             return;
                           }
                           state = PluginState.READY;
@@ -139,12 +206,17 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
                             Bukkit.getScheduler().cancelTask(readinessTask);
                             readinessTask = -1;
                           }
-                          initializeInterface(bound);
-                          getLogger().info("TradingPost is READY");
+                          initializeInterface(bound, boundTerritories);
+                          getLogger()
+                              .info(
+                                  "TradingPost is READY with territories "
+                                      + boundTerritories.all().stream()
+                                          .map(Territory::id)
+                                          .toList());
                         }));
   }
 
-  private void initializeInterface(ItemDeliveryHandler deliveries) {
+  private void initializeInterface(ItemDeliveryHandler deliveries, TerritoryRegistry territories) {
     settlementService = new SettlementService(database, configuration, mint, deliveries, executor);
     orderService =
         new OrderService(this, database, configuration, settlementService, deliveries, executor);
@@ -188,8 +260,9 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
                                       () -> state == PluginState.READY,
                                       (player, context) -> menu.open(player, context.marketName())),
                                   this);
-                          new TradingPostCommands(this, registry, menu, configuration, true)
-                              .register();
+                          commandHandler =
+                              new TradingPostCommands(
+                                  this, registry, territories, menu, configuration, true);
                           Bukkit.getScheduler()
                               .runTaskTimer(
                                   this,
@@ -258,7 +331,10 @@ public final class TradingPostPlugin extends JavaPlugin implements MintClientRec
       Bukkit.getScheduler().cancelTask(readinessTask);
       readinessTask = -1;
     }
-    Bukkit.getServicesManager().unregister(MintClientReceiver.class, this);
+    if (mintClientReceiver != null) {
+      Bukkit.getServicesManager().unregister(MintClientReceiver.class, mintClientReceiver);
+      mintClientReceiver = null;
+    }
     if (mint != null) {
       mint.clearMintClient();
     }

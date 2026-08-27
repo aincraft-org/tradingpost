@@ -44,7 +44,7 @@ subprojects {
         apply(plugin = "com.diffplug.spotless")
 
         val artifactBase = name
-        val isPaper = name == "tradingpost-paper"
+        val isPaper = name == "tradingpost-paper" || name == "tradingpost-test"
 
         extensions.configure<BasePluginExtension> {
             archivesName.set(artifactBase)
@@ -102,6 +102,7 @@ subprojects {
                                 "tradingpost-api" -> "TradingPost public integration contracts"
                                 "tradingpost-common" -> "TradingPost Bukkit-free engine"
                                 "tradingpost-paper" -> "TradingPost Paper plugin"
+                                "tradingpost-test" -> "TradingPost test host plugin"
                                 else -> "TradingPost $artifactBase module"
                             },
                         )

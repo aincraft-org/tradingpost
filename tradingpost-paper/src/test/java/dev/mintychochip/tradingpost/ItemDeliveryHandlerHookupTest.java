@@ -22,5 +22,11 @@ class ItemDeliveryHandlerHookupTest {
     assertTrue(
         text.contains("deliveries == null") || text.contains("bound == null"),
         "READY must wait until a handler is registered");
+    assertTrue(
+        text.contains("Bukkit.getServicesManager().load(TerritoryRegistry.class)"),
+        "TradingPost must bind TerritoryRegistry from ServicesManager");
+    assertTrue(
+        text.contains("territories == null") || text.contains("boundTerritories == null"),
+        "READY must wait until a territory registry is registered");
   }
 }

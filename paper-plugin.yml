@@ -1,0 +1,7 @@
+name: Mint
+version: 1.0.0
+main: dev.mintychochip.mint.paper.MintPlugin
+api-version: '1.21'
+folia-supported: true
+author: Mint
+load: POSTWORLD

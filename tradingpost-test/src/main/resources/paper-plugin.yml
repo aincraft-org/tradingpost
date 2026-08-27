@@ -1,0 +1,13 @@
+name: TradingPostTest
+version: '1.0.0'
+main: dev.mintychochip.tradingpost.test.TradingPostTestPlugin
+api-version: '26.2'
+author: jlo
+load: POSTWORLD
+
+dependencies:
+  server:
+    TradingPost:
+      load: AFTER
+      required: true
+      join-classpath: true

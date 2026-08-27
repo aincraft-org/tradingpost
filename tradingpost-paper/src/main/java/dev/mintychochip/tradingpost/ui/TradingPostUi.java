@@ -10,6 +10,7 @@ import dev.mintychochip.tradingpost.items.ItemCodec;
 import dev.mintychochip.tradingpost.lifecycle.AsyncExecutor;
 import dev.mintychochip.tradingpost.market.OrderService;
 import dev.mintychochip.tradingpost.money.MoneyMath;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -55,6 +56,7 @@ public final class TradingPostUi implements Listener {
   private final Map<UUID, Map<String, Object>> providerSnapshots = new ConcurrentHashMap<>();
   private final Map<UUID, Inventory> inventories = new ConcurrentHashMap<>();
   private final Set<UUID> switching = ConcurrentHashMap.newKeySet();
+  private final Set<UUID> pendingSearch = ConcurrentHashMap.newKeySet();
 
   public TradingPostUi(
       Plugin plugin,
@@ -84,6 +86,8 @@ public final class TradingPostUi implements Listener {
     ids.put(TradingPostViews.ACTION_PAGE_NEXT, true);
     ids.put(TradingPostViews.ACTION_FILTER_HELD, true);
     ids.put(TradingPostViews.ACTION_FILTER_CLEAR, true);
+    ids.put(TradingPostViews.ACTION_SEARCH, true);
+    ids.put(TradingPostViews.ACTION_SEARCH_CLEAR, true);
     for (int i = 0; i < TradingPostViews.MY_ORDER_SLOTS; i++) {
       ids.put(TradingPostViews.ACTION_LISTING_PREFIX + i, true);
     }
@@ -142,8 +146,21 @@ public final class TradingPostUi implements Listener {
     loadScreenData(player, session);
   }
 
+  public void setSearchQuery(Player player, String query) {
+    TradingPostSession session = sessions.get(player.getUniqueId());
+    if (session == null) return;
+    session.searchQuery(query);
+    session.page(0);
+    open(player, session.marketName(), TradingPostSession.Screen.BROWSE, 0);
+  }
+
+  public void clearSearch(Player player) {
+    setSearchQuery(player, null);
+  }
+
   public void close(Player player) {
     UUID id = player.getUniqueId();
+    pendingSearch.remove(id);
     Inventory open = inventories.remove(id);
     sessions.remove(id);
     providerSnapshots.remove(id);
@@ -158,6 +175,7 @@ public final class TradingPostUi implements Listener {
       if (player != null) {
         close(player);
       } else {
+        pendingSearch.remove(id);
         inventories.remove(id);
         sessions.remove(id);
         providerSnapshots.remove(id);
@@ -245,6 +263,8 @@ public final class TradingPostUi implements Listener {
       case PAGE_NEXT -> page(audience, +1);
       case FILTER_HELD -> filterHeld(audience);
       case FILTER_CLEAR -> filterClear(audience);
+      case SEARCH -> requestSearch(audience);
+      case SEARCH_CLEAR -> searchClear(audience);
       case LISTING -> listingClick(audience, TradingPostClickRouter.listingIndex(actionId));
       case SELL_PRICE_DEC -> sellPrice(audience, -1);
       case SELL_PRICE_INC -> sellPrice(audience, +1);
@@ -432,6 +452,13 @@ public final class TradingPostUi implements Listener {
             session.materialFilter() == null
                 ? "Filter: all materials (click: held item)"
                 : "Filter: " + session.materialFilter() + " (click: held item)"));
+    root.put(
+        "search_label",
+        simpleItem(
+            "minecraft:name_tag",
+            session.searchQuery() == null
+                ? "Search: * (click to type)"
+                : "Search: " + session.searchQuery() + " (click to edit)"));
     return root;
   }
 
@@ -509,6 +536,7 @@ public final class TradingPostUi implements Listener {
 
   private void loadBrowse(Player player, TradingPostSession session) {
     String filter = session.materialFilter();
+    String search = session.searchQuery();
     int page = session.page();
     executor
         .submit(
@@ -519,6 +547,7 @@ public final class TradingPostUi implements Listener {
                             connection,
                             session.marketName(),
                             filter,
+                            search,
                             page * TradingPostViews.LISTING_SLOTS,
                             TradingPostViews.LISTING_SLOTS)))
         .whenComplete(
@@ -960,6 +989,95 @@ public final class TradingPostUi implements Listener {
     }
     session.materialFilter(null);
     open(player, session.marketName(), TradingPostSession.Screen.BROWSE, 0);
+  }
+
+  private void requestSearch(UUID audience) {
+    Player player = Bukkit.getPlayer(audience);
+    TradingPostSession session = sessions.get(audience);
+    if (player == null || session == null) {
+      return;
+    }
+    if (session.screen() != TradingPostSession.Screen.BROWSE) {
+      open(player, session.marketName(), TradingPostSession.Screen.BROWSE, 0);
+      return;
+    }
+    pendingSearch.add(audience);
+    switching.add(audience);
+    try {
+      player.closeInventory();
+    } finally {
+      switching.remove(audience);
+    }
+    inventories.remove(audience);
+    player.sendMessage(
+        Component.text(
+            "Type your search in chat (tokens like 'diamond sword'), or 'cancel' to abort."));
+    player.sendMessage(
+        Component.text(
+            "Current: " + (session.searchQuery() == null ? "*" : session.searchQuery())));
+    Bukkit.getScheduler()
+        .runTaskLater(
+            plugin,
+            () -> {
+              if (pendingSearch.remove(audience)) {
+                player.sendMessage(Component.text("Search timed out."));
+              }
+            },
+            20L * 30);
+  }
+
+  private void searchClear(UUID audience) {
+    Player player = Bukkit.getPlayer(audience);
+    TradingPostSession session = sessions.get(audience);
+    if (player == null || session == null) {
+      return;
+    }
+    session.searchQuery(null);
+    open(player, session.marketName(), TradingPostSession.Screen.BROWSE, 0);
+  }
+
+  /** Visible for tests: tokenizes same as OrderRepository. */
+  static List<String> tokenizeForUi(String query) {
+    return OrderRepository.tokenizeSearchQuery(query);
+  }
+
+  @EventHandler
+  public void onChat(AsyncChatEvent event) {
+    Player player = event.getPlayer();
+    UUID id = player.getUniqueId();
+    if (!pendingSearch.contains(id)) {
+      return;
+    }
+    event.setCancelled(true);
+    String raw = event.signedMessage().message();
+    if (raw == null) raw = "";
+    final String trimmed = raw.trim();
+    Bukkit.getScheduler()
+        .runTask(
+            plugin,
+            () -> {
+              if (!pendingSearch.remove(id)) return;
+              TradingPostSession session = sessions.get(id);
+              if (session == null) {
+                player.sendMessage(Component.text("Search cancelled (session expired)."));
+                return;
+              }
+              if (trimmed.equalsIgnoreCase("cancel") || trimmed.isEmpty()) {
+                if (trimmed.equalsIgnoreCase("cancel")) {
+                  player.sendMessage(Component.text("Search cancelled."));
+                } else {
+                  session.searchQuery(null);
+                  player.sendMessage(Component.text("Search cleared."));
+                }
+                open(player, session.marketName(), TradingPostSession.Screen.BROWSE, 0);
+                return;
+              }
+              String q = trimmed;
+              if (q.length() > 64) q = q.substring(0, 64);
+              session.searchQuery(q);
+              session.page(0);
+              open(player, session.marketName(), TradingPostSession.Screen.BROWSE, 0);
+            });
   }
 
   private void listingClick(UUID audience, int index) {

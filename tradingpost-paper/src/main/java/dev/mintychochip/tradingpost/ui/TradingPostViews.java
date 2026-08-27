@@ -35,6 +35,8 @@ public final class TradingPostViews {
 
   public static final String ACTION_FILTER_HELD = "tp.browse.filter_held";
   public static final String ACTION_FILTER_CLEAR = "tp.browse.filter_clear";
+  public static final String ACTION_SEARCH = "tp.browse.search";
+  public static final String ACTION_SEARCH_CLEAR = "tp.browse.search_clear";
   public static final String ACTION_LISTING_PREFIX = "tp.listing.";
 
   public static final String ACTION_SELL_PRICE_DEC = "tp.sell.price_dec";
@@ -121,6 +123,9 @@ public final class TradingPostViews {
             "filter_label"));
     slots.add(
         new Slot(37, "minecraft:barrier", "Clear material filter", ACTION_FILTER_CLEAR, null));
+    slots.add(
+        new Slot(38, "minecraft:name_tag", "Search (type query)", ACTION_SEARCH, "search_label"));
+    slots.add(new Slot(39, "minecraft:structure_void", "Clear search", ACTION_SEARCH_CLEAR, null));
     fillNav(slots);
     return new ScreenLayout(VIEW_BROWSE, CHEST_SIZE, "Trading Post", slots);
   }

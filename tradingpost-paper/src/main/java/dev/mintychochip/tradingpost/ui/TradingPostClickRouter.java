@@ -20,6 +20,8 @@ public final class TradingPostClickRouter {
     PAGE_NEXT,
     FILTER_HELD,
     FILTER_CLEAR,
+    SEARCH,
+    SEARCH_CLEAR,
     LISTING,
     SELL_PRICE_DEC,
     SELL_PRICE_INC,
@@ -72,6 +74,8 @@ public final class TradingPostClickRouter {
       case TradingPostViews.ACTION_PAGE_NEXT -> Intent.PAGE_NEXT;
       case TradingPostViews.ACTION_FILTER_HELD -> Intent.FILTER_HELD;
       case TradingPostViews.ACTION_FILTER_CLEAR -> Intent.FILTER_CLEAR;
+      case TradingPostViews.ACTION_SEARCH -> Intent.SEARCH;
+      case TradingPostViews.ACTION_SEARCH_CLEAR -> Intent.SEARCH_CLEAR;
       case TradingPostViews.ACTION_SELL_PRICE_DEC -> Intent.SELL_PRICE_DEC;
       case TradingPostViews.ACTION_SELL_PRICE_INC -> Intent.SELL_PRICE_INC;
       case TradingPostViews.ACTION_SELL_QTY_DEC -> Intent.SELL_QTY_DEC;

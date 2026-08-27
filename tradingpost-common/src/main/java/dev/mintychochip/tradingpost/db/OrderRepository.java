@@ -290,20 +290,77 @@ public final class OrderRepository {
 
   public List<SellOrder> browseAsks(Connection connection, String market, int offset, int limit)
       throws SQLException {
-    return browseAsks(connection, market, null, offset, limit);
+    return browseAsks(connection, market, null, null, offset, limit);
   }
 
   public List<SellOrder> browseAsks(
       Connection connection, String market, String materialFilter, int offset, int limit)
       throws SQLException {
-    boolean filter = materialFilter != null && !materialFilter.isBlank();
-    String statementSql =
-        statement(filter ? "orders/browse-asks-by-material.sql" : "orders/browse-asks.sql");
-    try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+    return browseAsks(connection, market, materialFilter, null, offset, limit);
+  }
+
+  public List<SellOrder> browseAsks(
+      Connection connection,
+      String market,
+      String materialFilter,
+      String searchQuery,
+      int offset,
+      int limit)
+      throws SQLException {
+    List<String> tokens = tokenizeSearchQuery(searchQuery);
+    boolean hasMaterial = materialFilter != null && !materialFilter.isBlank();
+    boolean hasSearch = !tokens.isEmpty();
+    if (!hasMaterial && !hasSearch) {
+      String statementSql = statement("orders/browse-asks.sql");
+      try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+        int i = 1;
+        statement.setString(i++, market);
+        statement.setInt(i++, limit);
+        statement.setInt(i, offset);
+        try (ResultSet rows = statement.executeQuery()) {
+          List<SellOrder> result = new ArrayList<>();
+          while (rows.next()) result.add(readSell(rows));
+          return List.copyOf(result);
+        }
+      }
+    }
+    if (hasMaterial && !hasSearch) {
+      String statementSql = statement("orders/browse-asks-by-material.sql");
+      try (PreparedStatement statement = connection.prepareStatement(statementSql)) {
+        int i = 1;
+        statement.setString(i++, market);
+        statement.setString(i++, materialFilter);
+        statement.setInt(i++, limit);
+        statement.setInt(i, offset);
+        try (ResultSet rows = statement.executeQuery()) {
+          List<SellOrder> result = new ArrayList<>();
+          while (rows.next()) result.add(readSell(rows));
+          return List.copyOf(result);
+        }
+      }
+    }
+    // Portable hybrid: exact material filter (if present) + tokenized LOWER(material) LIKE %token%
+    // Works on PostgreSQL, MySQL/MariaDB, and SQLite without dialect-specific ILIKE/pg_trgm/pgvector.
+    StringBuilder sql = new StringBuilder();
+    sql.append(
+        "SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at FROM ");
+    sql.append(this.sql.table("sell_orders"));
+    sql.append(" WHERE market_name=? AND status='ACTIVE' AND quantity_remaining>0");
+    if (hasMaterial) {
+      sql.append(" AND material=?");
+    }
+    for (int ti = 0; ti < tokens.size(); ti++) {
+      sql.append(" AND LOWER(material) LIKE ?");
+    }
+    sql.append(" ORDER BY unit_price ASC, created_at ASC, id ASC LIMIT ? OFFSET ?");
+    try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
       int i = 1;
       statement.setString(i++, market);
-      if (filter) {
+      if (hasMaterial) {
         statement.setString(i++, materialFilter);
+      }
+      for (String token : tokens) {
+        statement.setString(i++, "%" + token + "%");
       }
       statement.setInt(i++, limit);
       statement.setInt(i, offset);
@@ -313,6 +370,20 @@ public final class OrderRepository {
         return List.copyOf(result);
       }
     }
+  }
+
+  public static List<String> tokenizeSearchQuery(String query) {
+    if (query == null || query.isBlank()) return List.of();
+    String norm = query.trim().toLowerCase(java.util.Locale.ROOT).replace(':', ' ');
+    String[] parts = norm.split("[^a-z0-9_]+");
+    java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<>();
+    for (String p : parts) {
+      if (p == null || p.isBlank()) continue;
+      if (p.length() < 2) continue;
+      seen.add(p);
+      if (seen.size() >= 5) break;
+    }
+    return List.copyOf(seen);
   }
 
   public java.util.Optional<BuyOrder> bestBid(Connection connection, String market, String material)
