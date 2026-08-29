@@ -4,7 +4,7 @@ plugins {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
     withSourcesJar()
     withJavadocJar()
@@ -13,6 +13,18 @@ java {
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven {
+        name = "utilitiesGitHubPackages"
+        url = uri("https://maven.pkg.github.com/mintychochip/Utilities")
+        credentials {
+            username = providers.gradleProperty("gpr.user")
+                .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+                .getOrElse("")
+            password = providers.gradleProperty("gpr.key")
+                .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+                .getOrElse("")
+        }
+    }
     maven {
         name = "mintGitHubPackages"
         url = uri("https://maven.pkg.github.com/aincraft-org/mint")
@@ -32,6 +44,7 @@ val mintApi = "dev.mintychochip.mint:mint-api:$mintVersion"
 
 dependencies {
     api(project(":tradingpost-api"))
+    implementation("org.aincraft:utilities-db-sql:2026.08.27")
     compileOnly(mintApi)
     compileOnly("com.zaxxer:HikariCP:6.2.1")
     compileOnly("org.postgresql:postgresql:42.7.5")
@@ -54,7 +67,7 @@ dependencies {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-    options.release.set(21)
+    options.release.set(25)
     options.encoding = "UTF-8"
 }
 
