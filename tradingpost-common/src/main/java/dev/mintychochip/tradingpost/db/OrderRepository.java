@@ -340,7 +340,8 @@ public final class OrderRepository {
       }
     }
     // Portable hybrid: exact material filter (if present) + tokenized LOWER(material) LIKE %token%
-    // Works on PostgreSQL, MySQL/MariaDB, and SQLite without dialect-specific ILIKE/pg_trgm/pgvector.
+    // Works on PostgreSQL, MySQL/MariaDB, and SQLite without dialect-specific
+    // ILIKE/pg_trgm/pgvector.
     StringBuilder sql = new StringBuilder();
     sql.append(
         "SELECT id,market_name,seller,material,item_blob,fingerprint,quantity,quantity_remaining,unit_price,mode,status,expires_at,created_at FROM ");

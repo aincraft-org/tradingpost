@@ -15,6 +15,18 @@ repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven {
+        name = "utilitiesGitHubPackages"
+        url = uri("https://maven.pkg.github.com/mintychochip/Utilities")
+        credentials {
+            username = providers.gradleProperty("gpr.user")
+                .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+                .getOrElse("")
+            password = providers.gradleProperty("gpr.key")
+                .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+                .getOrElse("")
+        }
+    }
+    maven {
         name = "mintGitHubPackages"
         url = uri("https://maven.pkg.github.com/aincraft-org/mint")
         credentials {
@@ -32,11 +44,15 @@ val mintVersion = "26.8.12.10"
 val mintApi = "dev.mintychochip.mint:mint-api:$mintVersion"
 val mintPaper = "dev.mintychochip.mint:mint-paper:$mintVersion"
 
-val mintPaperRuntime by configurations.creating {
+val databaseRuntime by configurations.creating {
     isCanBeConsumed = false
     isCanBeResolved = true
 }
 
+val mintPaperRuntime by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
 dependencies {
     api(project(":tradingpost-common"))
     compileOnly("io.papermc.paper:paper-api:26.2.build.111-stable")
@@ -47,6 +63,10 @@ dependencies {
     compileOnly("com.mysql:mysql-connector-j:9.3.0")
     compileOnly("org.mariadb.jdbc:mariadb-java-client:3.5.3")
     compileOnly("org.xerial:sqlite-jdbc:3.49.1.0")
+
+    add(databaseRuntime.name, "org.aincraft:utilities-db-sql:2026.08.27") {
+        exclude(group = "com.zaxxer", module = "HikariCP")
+    }
 
     add(mintPaperRuntime.name, mintPaper)
 
@@ -181,4 +201,5 @@ tasks.jar {
     from(
         project(":tradingpost-api").tasks.named("jar").map { zipTree(it.outputs.files.singleFile) },
     )
+    from(databaseRuntime.map { file -> if (file.isDirectory) file else zipTree(file) })
 }
